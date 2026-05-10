@@ -1,0 +1,28 @@
+from pydantic import BaseModel, ConfigDict, UUID4
+from typing import Optional
+from datetime import datetime
+
+
+class BudgetBase(BaseModel):
+    category_id: UUID4
+    limit_amount: float
+    start_date: datetime
+    end_date: datetime
+
+
+class BudgetCreate(BudgetBase):
+    pass
+
+
+class BudgetUpdate(BaseModel):
+    limit_amount: Optional[float] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
+
+class BudgetResponse(BudgetBase):
+    id: UUID4
+    user_id: UUID4
+    spent_amount: float = 0.0
+
+    model_config = ConfigDict(from_attributes=True)

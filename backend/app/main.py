@@ -1,10 +1,17 @@
 from fastapi import FastAPI
 
-from app.api.routes import auth, users, accounts, categories, transactions
+from app.api.routes import (
+    auth,
+    users,
+    accounts,
+    categories,
+    transactions,
+    budgets,
+)
 
 app = FastAPI(
     title="Personal Finance Management System API",
-    description="Backend API for the Personal Finance Management System with ML capabilities",
+    description=" API for the Personal Finance Management System with ML capabilities",
     version="1.0.0",
 )
 
@@ -13,6 +20,7 @@ app.include_router(users.router)
 app.include_router(accounts.router)
 app.include_router(categories.router)
 app.include_router(transactions.router)
+app.include_router(budgets.router)
 
 
 @app.get("/")
