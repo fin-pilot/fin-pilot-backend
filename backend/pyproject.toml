@@ -14,7 +14,10 @@ authors = [
 dependencies = [
     "fastapi",
     "sqlalchemy",
-    "python-dotenv"
+    "python-dotenv",
+    "sqlalchemy_utils",
+    "alembic",
+    "psycopg2-binary"
 ]
 
 [project.optional-dependencies]
@@ -26,3 +29,6 @@ dev = [
 [tool.black]
 line-length = 80
 skip-string-normalization = false
+
+[tool.setuptools.packages.find]
+include = ["app", "app.*"]
