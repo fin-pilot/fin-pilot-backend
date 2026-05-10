@@ -45,7 +45,7 @@ def create_category(
     return new_category
 
 
-@router.put("/{id}", response_model=CategoryResponse)
+@router.put("/{category_id}", response_model=CategoryResponse)
 def update_category(
     category_id: uuid.UUID,
     category_in: CategoryUpdate,
@@ -72,7 +72,7 @@ def update_category(
     return category
 
 
-@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_category(
     category_id: uuid.UUID,
     db: Session = Depends(get_db),
