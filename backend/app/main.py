@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routes import auth, users
+from app.api.routes import auth, users, accounts
 
 app = FastAPI(
     title="Personal Finance Management System API",
@@ -10,6 +10,7 @@ app = FastAPI(
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(accounts.router)
 
 
 @app.get("/")
