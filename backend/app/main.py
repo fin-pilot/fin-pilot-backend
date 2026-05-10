@@ -7,6 +7,7 @@ from app.api.routes import (
     categories,
     transactions,
     budgets,
+    analytics,
 )
 
 app = FastAPI(
@@ -21,6 +22,7 @@ app.include_router(accounts.router)
 app.include_router(categories.router)
 app.include_router(transactions.router)
 app.include_router(budgets.router)
+app.include_router(analytics.router)
 
 
 @app.get("/")

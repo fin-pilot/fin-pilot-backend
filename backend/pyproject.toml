@@ -22,7 +22,8 @@ dependencies = [
     "python-jose[cryptography]", 
     "pwdlib[argon2,bcrypt]",
     "pydantic[email]",
-    "pydantic-settings"
+    "pydantic-settings",
+    "pandas"
 ]
 
 [project.optional-dependencies]
