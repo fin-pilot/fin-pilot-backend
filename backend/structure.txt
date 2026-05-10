@@ -1,0 +1,40 @@
+personal-finance-management-system/
+├── frontend/                     # Рівень представлення (React.js SPA) [cite: 26]
+│   ├── public/                   
+│   │   ├── manifest.json         # Налаштування для PWA [cite: 142]
+│   │   ├── service-worker.js     # Офлайн-робота та кешування для PWA [cite: 142]
+│   │   └── index.html            
+│   ├── src/
+│   │   ├── assets/               # Статичні файли (іконки, зображення)
+│   │   ├── components/           # Перевикористовувані UI-компоненти (кнопки, форми)
+│   │   ├── pages/                # Сторінки (Dashboard, History, Settings)
+│   │   ├── services/             # API-клієнт (fetch/axios) для зв'язку з бекендом [cite: 133]
+│   │   ├── utils/                # Допоміжні функції
+│   │   ├── App.jsx               # Головний компонент маршрутизації
+│   │   └── main.jsx              # Точка входу React
+│   ├── package.json              # Залежності фронтенду (react, chart.js/recharts) [cite: 28]
+│   └── vite.config.js            # Конфігурація збирача (наприклад, Vite) [cite: 131]
+│
+├── backend/                      # Рівень бізнес-логіки та API (FastAPI) [cite: 10, 20]
+│   ├── app/
+│   │   ├── api/                  # Маршрути (Endpoints)
+│   │   │   ├── routes/           
+│   │   │   │   ├── users.py      # CRUD користувачів
+│   │   │   │   ├── transactions.py # CRUD транзакцій [cite: 122]
+│   │   │   │   └── analytics.py  # Ендпоінти для отримання прогнозів [cite: 128]
+│   │   ├── core/                 # Базові налаштування (конфігурація, безпека)
+│   │   ├── db/                   # Рівень зберігання даних (PostgreSQL) [cite: 15]
+│   │   │   ├── database.py       # Підключення до БД
+│   │   │   └── models.py         # SQLAlchemy моделі (User, Transaction, Category) [cite: 121, 148]
+│   │   ├── schemas/              # Pydantic моделі (валідація вхідних/вихідних даних FastAPI)
+│   │   ├── services/             # Бізнес-логіка (обробка даних перед записом у БД)
+│   │   ├── ml/                   # Інтелектуальний рівень (Data Science) [cite: 12]
+│   │   │   ├── data_prep.py      # Ресемплювання та інженерія ознак (Pandas) [cite: 22, 75]
+│   │   │   ├── forecaster.py     # Логіка навчання та прогнозів ARIMA/SARIMA (Statsmodels) [cite: 22, 127]
+│   │   │   └── nlp_classifier.py # Логіка класифікації транзакцій (NLP) [cite: 80]
+│   │   └── main.py               # Точка входу FastAPI (ініціалізація додатку)
+│   ├── requirements.txt          # Залежності Python (fastapi, uvicorn, pandas, statsmodels, sqlalchemy) [cite: 22, 121]
+│   └── .env                      # Змінні середовища (доступи до БД)
+│
+├── .gitignore                    # Ігнорування node_modules, __pycache__, .env тощо
+└── README.md                     # Опис проєкту для GitHub (з вашими англомовними текстами) [cite: 190]
