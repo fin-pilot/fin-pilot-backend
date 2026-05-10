@@ -1,4 +1,5 @@
 from app.db.database import Base
+from app.core.config import settings
 
 # pylint: disable=unused-import
 import app.db.models
@@ -10,12 +11,9 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
-from dotenv import load_dotenv
 from sqlalchemy_utils import database_exists, create_database
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-load_dotenv()
 
 config = context.config
 
@@ -24,7 +22,7 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-db_url = os.getenv("DATABASE_URL")
+db_url = settings.DATABASE_URL
 config.set_main_option("sqlalchemy.url", db_url)
 
 

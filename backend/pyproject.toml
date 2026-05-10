@@ -12,13 +12,17 @@ authors = [
     { name = "Oleksii Palamarchuk", email = "oleksiypalamarchuck@gmail.com" }
 ]
 dependencies = [
+    "python-multipart",
     "fastapi",
-    "uvicorn",
+    "uvicorn[standard]",
     "sqlalchemy",
-    "python-dotenv",
     "sqlalchemy_utils",
     "alembic",
-    "psycopg2-binary"
+    "psycopg2-binary",
+    "python-jose[cryptography]", 
+    "pwdlib[argon2,bcrypt]",
+    "pydantic[email]",
+    "pydantic-settings"
 ]
 
 [project.optional-dependencies]
