@@ -1,6 +1,5 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, UUID4
 from typing import Optional
-import uuid
 from app.db.models import AccountType
 
 
@@ -23,7 +22,7 @@ class AccountUpdate(BaseModel):
 
 
 class AccountResponse(AccountBase):
-    id: uuid.UUID
-    user_id: uuid.UUID
+    id: UUID4
+    user_id: UUID4
 
     model_config = ConfigDict(from_attributes=True)

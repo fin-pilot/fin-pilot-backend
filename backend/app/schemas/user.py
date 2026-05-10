@@ -1,6 +1,5 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, UUID4
 from typing import Optional
-import uuid
 
 
 class UserBase(BaseModel):
@@ -18,7 +17,7 @@ class UserUpdate(BaseModel):
 
 
 class UserResponse(UserBase):
-    id: uuid.UUID
+    id: UUID4
 
     model_config = ConfigDict(from_attributes=True)
 
