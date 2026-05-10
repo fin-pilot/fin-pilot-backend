@@ -22,6 +22,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     hashed_password = pwd_context.hash(user_in.password)
     new_user = User(
         email=user_in.email,
+        full_name=user_in.full_name,
         hashed_password=hashed_password,
     )
     db.add(new_user)

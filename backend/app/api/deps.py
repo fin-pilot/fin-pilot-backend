@@ -32,7 +32,7 @@ def get_current_user(
     except JWTError as exc:
         raise credentials_exception from exc
 
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
         raise credentials_exception

@@ -18,6 +18,8 @@ def update_me(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    if user_in.full_name:
+        current_user.full_name = user_in.full_name
     if user_in.email:
         current_user.email = user_in.email
 
