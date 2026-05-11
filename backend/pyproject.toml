@@ -23,7 +23,9 @@ dependencies = [
     "pwdlib[argon2,bcrypt]",
     "pydantic[email]",
     "pydantic-settings",
-    "pandas"
+    "pandas",
+    "scikit-learn",
+    "statsmodels"
 ]
 
 [project.optional-dependencies]
