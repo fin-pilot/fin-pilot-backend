@@ -19,13 +19,15 @@ dependencies = [
     "sqlalchemy_utils",
     "alembic",
     "psycopg2-binary",
-    "python-jose[cryptography]", 
+    "python-jose[cryptography]",
     "pwdlib[argon2,bcrypt]",
     "pydantic[email]",
     "pydantic-settings",
     "pandas",
     "scikit-learn",
-    "statsmodels"
+    "statsmodels",
+    "pyarrow",
+    "joblib",
 ]
 
 [project.optional-dependencies]

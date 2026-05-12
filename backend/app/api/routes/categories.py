@@ -11,7 +11,7 @@ from app.schemas.category import (
     CategoryResponse,
     CategoryUpdate,
 )
-from app.api.deps import get_current_user
+from app.api.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 

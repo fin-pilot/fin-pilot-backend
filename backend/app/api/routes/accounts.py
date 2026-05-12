@@ -6,7 +6,7 @@ import uuid
 from app.db.database import get_db
 from app.db.models import Account, User
 from app.schemas.account import AccountCreate, AccountResponse, AccountUpdate
-from app.api.deps import get_current_user
+from app.api.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, UUID4, model_validator
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from app.db.models import TransactionType
 
@@ -53,5 +53,12 @@ class PredictCategoryRequest(BaseModel):
 
 class PredictCategoryResponse(BaseModel):
     predicted_category_id: Optional[UUID4]
+    predicted_label: Optional[str] = None
     confidence_score: float
     message: str
+
+
+class TransactionImportResult(BaseModel):
+    created: int
+    skipped: int
+    errors: List[str]

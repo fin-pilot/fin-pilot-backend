@@ -5,9 +5,16 @@ from typing import List
 from uuid import UUID
 
 from app.db.database import get_db
-from app.db.models import Budget, User, Transaction, Category, Account
+from app.db.models import (
+    Account,
+    Budget,
+    Category,
+    Transaction,
+    TransactionType,
+    User,
+)
 from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetUpdate
-from app.api.deps import get_current_user
+from app.api.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/budgets", tags=["budgets"])
 
@@ -26,6 +33,7 @@ def get_budgets(
             .filter(
                 Account.user_id == current_user.id,
                 Transaction.category_id == budget.category_id,
+                Transaction.transaction_type == TransactionType.EXPENSE,
                 Transaction.transaction_date >= budget.start_date,
                 Transaction.transaction_date <= budget.end_date,
             )
@@ -94,6 +102,7 @@ def update_budget(
         .filter(
             Account.user_id == current_user.id,
             Transaction.category_id == budget.category_id,
+            Transaction.transaction_type == TransactionType.EXPENSE,
             Transaction.transaction_date >= budget.start_date,
             Transaction.transaction_date <= budget.end_date,
         )
