@@ -30,13 +30,19 @@ def evaluate_model(model, x_test, y_test, show_confusion_matrix=False):
     logger.info("Recall   : %.4f", recall)
     logger.info("F1 Score : %.4f", f1)
 
-    report = classification_report(y_test, y_pred, output_dict=True)
+    text_report = classification_report(y_test, y_pred, zero_division=0)
+
+    logger.info("\nClassification Report:\n%s", text_report)
+
+    report = classification_report(
+        y_test, y_pred, output_dict=True, zero_division=0
+    )
 
     cm = None
-
     if show_confusion_matrix:
         cm = confusion_matrix(y_test, y_pred)
         logger.info("Confusion matrix generated.")
+        logger.info("\n%s", cm)
 
     return {
         "accuracy": accuracy,
