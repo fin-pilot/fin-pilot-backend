@@ -28,19 +28,23 @@ class MLService:
             self._is_loaded = False
             logger.error("OS Error while loading ML model. Details: %s", e)
 
-    def predict_with_confidence(self, description: str) -> tuple[str, float]:
+    def predict(self, description: str) -> str:
         if not self._is_loaded:
-            return "Uncategorized", 0.0
-        return self.categorizer.predict_with_confidence(description)
+            return "Uncategorized"
+
+        return self.categorizer.predict([description])[0]
 
     def categorize_transaction_description(
-        self, db: Session, user_id: UUID, description: str
-    ) -> tuple[UUID | None, str, float]:
+        self,
+        db: Session,
+        user_id: UUID,
+        description: str,
+    ) -> tuple[UUID | None, str]:
 
-        label, confidence = self.predict_with_confidence(description)
+        label = self.predict(description)
 
         if label == "Uncategorized":
-            return None, label, 0.0
+            return None, label
 
         category = (
             db.query(Category)
@@ -54,19 +58,19 @@ class MLService:
 
         if category:
             logger.info(
-                "Model predicted '%s' (%.0f%%). Matched DB category ID: %s",
+                "Model predicted '%s'. Matched DB category ID: %s",
                 label,
-                confidence * 100,
                 category.id,
             )
-            return category.id, label, confidence
+
+            return category.id, label
 
         logger.info(
-            "Model predicted '%s' (%.0f%%). No match in DB, returning None.",
+            "Model predicted '%s'. No DB category match found.",
             label,
-            confidence * 100,
         )
-        return None, label, confidence
+
+        return None, label
 
 
 ml_service = MLService()

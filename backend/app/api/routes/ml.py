@@ -4,7 +4,7 @@ from app.db.database import get_db
 from app.api.dependencies import get_current_user
 from app.db.models import User, Category, TransactionType
 from app.services.ml_service import ml_service
-from app.schemas.transaction import (
+from app.schemas.ml import (
     PredictCategoryRequest,
     PredictCategoryResponse,
 )
@@ -18,10 +18,8 @@ async def categorize_description(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    category_id, label, confidence = (
-        ml_service.categorize_transaction_description(
-            db, current_user.id, request.description
-        )
+    category_id, label = ml_service.categorize_transaction_description(
+        db, current_user.id, request.description
     )
 
     is_fallback = False
@@ -48,7 +46,6 @@ async def categorize_description(
     return PredictCategoryResponse(
         predicted_category_id=category_id,
         predicted_label=label,
-        confidence_score=confidence,
         message=message,
         is_fallback=is_fallback,
     )

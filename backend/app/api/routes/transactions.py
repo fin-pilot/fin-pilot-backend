@@ -283,7 +283,7 @@ async def import_transactions_csv(
                     cat_id = cat.id
 
             if not cat_id and desc and tx_type == TransactionType.EXPENSE:
-                cat_id = ml_service.categorize_transaction_description(
+                cat_id, _ = ml_service.categorize_transaction_description(
                     db, current_user.id, desc
                 )
 
