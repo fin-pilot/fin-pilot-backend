@@ -1,5 +1,6 @@
 dataset:
   name: mitulshah/transaction-categorization
+  release_url: "https://github.com/PalamarchukOleksii/personal-finance-management-system/releases/download/v0.0.1/transaction_classifier.pkl"
 
 data:
   test_size: 0.2

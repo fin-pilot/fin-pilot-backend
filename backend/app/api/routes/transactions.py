@@ -18,19 +18,16 @@ from fastapi import (
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_categorizer, get_current_user
+from app.api.dependencies import get_current_user
 from app.db.database import get_db
-from app.db.models import Account, Transaction, TransactionType, User
-from ml.models.categorizer import TransactionCategorizer
+from app.db.models import Account, Transaction, TransactionType, User, Category
+from app.services.ml_service import ml_service
 from app.schemas.transaction import (
-    PredictCategoryRequest,
-    PredictCategoryResponse,
     TransactionCreate,
     TransactionImportResult,
     TransactionResponse,
     TransactionUpdate,
 )
-from app.services.category_resolution import resolve_category_for_label
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 
@@ -111,6 +108,20 @@ def create_transaction(
             status_code=404, detail="Account not found or access denied"
         )
 
+    category = (
+        db.query(Category)
+        .filter(
+            Category.id == trans_in.category_id,
+            (Category.user_id == current_user.id) | (Category.user_id == None),
+        )
+        .first()
+    )
+
+    if not category:
+        raise HTTPException(
+            status_code=400, detail="Invalid category ID or access denied"
+        )
+
     dest_account: Account | None = None
     if trans_in.transaction_type == TransactionType.TRANSFER:
         dest_account = (
@@ -126,24 +137,6 @@ def create_transaction(
                 status_code=404, detail="Destination account not found"
             )
 
-    data = trans_in.model_dump()
-    if (
-        data.get("category_id") is None
-        and trans_in.transaction_type == TransactionType.EXPENSE
-        and trans_in.description
-    ):
-        categorizer = get_categorizer()
-        if categorizer.pipeline is not None:
-            label = categorizer.predict(trans_in.description)
-            resolved = resolve_category_for_label(
-                db,
-                current_user.id,
-                label,
-                TransactionType.EXPENSE,
-            )
-            if resolved:
-                data["category_id"] = resolved.id
-
     _apply_transaction_balance(
         account,
         dest_account,
@@ -151,6 +144,7 @@ def create_transaction(
         trans_in.transaction_type,
     )
 
+    data = trans_in.model_dump()
     new_transaction = Transaction(**data)
     db.add(new_transaction)
     db.commit()
@@ -275,11 +269,43 @@ async def import_transactions_csv(
             cat_id: UUID | None = None
             cname = (row.get("category_name") or "").strip()
             if cname:
-                cat = resolve_category_for_label(
-                    db, current_user.id, cname, tx_type
+                cat = (
+                    db.query(Category)
+                    .filter(
+                        Category.name.ilike(cname),
+                        (Category.user_id == current_user.id)
+                        | (Category.user_id == None),
+                        Category.transaction_type == tx_type,
+                    )
+                    .first()
                 )
                 if cat:
                     cat_id = cat.id
+
+            if not cat_id and desc and tx_type == TransactionType.EXPENSE:
+                cat_id = ml_service.categorize_transaction_description(
+                    db, current_user.id, desc
+                )
+
+            if not cat_id:
+                fallback_cat = (
+                    db.query(Category)
+                    .filter(
+                        Category.name == "Other",
+                        Category.transaction_type == tx_type,
+                        Category.user_id.is_(None),
+                    )
+                    .first()
+                )
+
+                if fallback_cat:
+                    cat_id = fallback_cat.id
+                else:
+                    errors.append(
+                        f"Line {i}: Global fallback category 'Other' is missing"
+                    )
+                    skipped += 1
+                    continue
 
             tdate_raw = (row.get("transaction_date") or "").strip()
             if tdate_raw:
@@ -316,43 +342,6 @@ async def import_transactions_csv(
 
     return TransactionImportResult(
         created=created, skipped=skipped, errors=errors[:50]
-    )
-
-
-@router.post("/predict-category", response_model=PredictCategoryResponse)
-def predict_transaction_category(
-    request: PredictCategoryRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    categorizer: TransactionCategorizer = Depends(get_categorizer),
-):
-    if categorizer.pipeline is None:
-        raise HTTPException(
-            status_code=503, detail="ML model is not trained or loaded yet."
-        )
-
-    label = categorizer.predict(request.description)
-    resolved = resolve_category_for_label(
-        db,
-        current_user.id,
-        label,
-        TransactionType.EXPENSE,
-    )
-    if resolved:
-        return PredictCategoryResponse(
-            predicted_category_id=resolved.id,
-            predicted_label=str(label),
-            confidence_score=1.0,
-            message="Category matched by name for this user or global catalog.",
-        )
-    return PredictCategoryResponse(
-        predicted_category_id=None,
-        predicted_label=str(label),
-        confidence_score=0.5,
-        message=(
-            "Model predicted a label, but no matching expense category exists. "
-            "Create a category with this name or map synonyms in training data."
-        ),
     )
 
 
@@ -395,6 +384,19 @@ def update_transaction(
         raise HTTPException(
             status_code=404, detail="Transaction not found or access denied"
         )
+
+    if trans_in.category_id is not None:
+        category = (
+            db.query(Category)
+            .filter(
+                Category.id == trans_in.category_id,
+                (Category.user_id == current_user.id)
+                | (Category.user_id == None),
+            )
+            .first()
+        )
+        if not category:
+            raise HTTPException(status_code=400, detail="Invalid category ID")
 
     if trans_in.amount is not None and trans_in.amount != trans.amount:
         amount_difference = trans_in.amount - trans.amount

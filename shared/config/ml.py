@@ -18,6 +18,7 @@ class DataConfig(BaseModel):
 
 class ModelConfig(BaseModel):
     path: str
+    release_url: str | None = None
 
 
 class TFIDFConfig(BaseModel):

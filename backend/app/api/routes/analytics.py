@@ -225,33 +225,3 @@ def get_overspending(
             )
         )
     return out
-
-
-@router.get("/anomalies/isolation", response_model=List[float])
-def isolation_anomaly_amounts(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Return expense amounts flagged as anomalies by an isolation forest."""
-    from ml.anomaly_detector import AnomalyDetector
-
-    rows = (
-        db.query(Transaction.amount)
-        .join(Account, Transaction.account_id == Account.id)
-        .filter(
-            Account.user_id == current_user.id,
-            Transaction.transaction_type == TransactionType.EXPENSE,
-        )
-        .all()
-    )
-    amounts = [float(r.amount) for r in rows if r.amount is not None]
-    if len(amounts) < 10:
-        raise HTTPException(
-            status_code=400,
-            detail="Need at least 10 expense transactions for anomaly detection.",
-        )
-
-    det = AnomalyDetector()
-    det.train(pd.DataFrame({"amount": amounts}))
-    flagged = [a for a in amounts if det.detect(a)]
-    return flagged

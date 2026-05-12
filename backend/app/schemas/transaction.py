@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, UUID4, model_validator
+from pydantic import BaseModel, ConfigDict, UUID4, Field, model_validator
 from typing import List, Optional
 from datetime import datetime
 from app.db.models import TransactionType
@@ -6,12 +6,14 @@ from app.db.models import TransactionType
 
 class TransactionBase(BaseModel):
     account_id: UUID4
-    category_id: Optional[UUID4] = None
+    category_id: UUID4
     destination_account_id: Optional[UUID4] = None
     amount: float
     description: Optional[str] = None
     transaction_type: TransactionType
-    transaction_date: datetime = datetime.now()
+    transaction_date: datetime = Field(
+        default_factory=lambda: datetime.now().astimezone()
+    )
 
 
 class TransactionCreate(TransactionBase):
@@ -45,17 +47,6 @@ class TransactionResponse(TransactionBase):
     id: UUID4
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class PredictCategoryRequest(BaseModel):
-    description: str
-
-
-class PredictCategoryResponse(BaseModel):
-    predicted_category_id: Optional[UUID4]
-    predicted_label: Optional[str] = None
-    confidence_score: float
-    message: str
 
 
 class TransactionImportResult(BaseModel):
