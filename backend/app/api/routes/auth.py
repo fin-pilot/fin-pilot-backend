@@ -8,7 +8,7 @@ from pwdlib import PasswordHash
 from pwdlib.hashers.bcrypt import BcryptHasher
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
+from shared.config import backend_settings
 from app.db.database import get_db
 from app.db.models import User
 from app.schemas.user import (
@@ -24,7 +24,7 @@ pwd_context = PasswordHash((BcryptHasher(),))
 
 def _create_access_token(user_id: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        minutes=backend_settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
     return jwt.encode(
         {
@@ -32,14 +32,14 @@ def _create_access_token(user_id: str) -> str:
             "exp": int(expire.timestamp()),
             "token_use": "access",
         },
-        settings.SECRET_KEY,
-        algorithm=settings.ALGORITHM,
+        backend_settings.SECRET_KEY,
+        algorithm=backend_settings.ALGORITHM,
     )
 
 
 def _create_refresh_token(user_id: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
-        days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+        days=backend_settings.REFRESH_TOKEN_EXPIRE_DAYS
     )
     return jwt.encode(
         {
@@ -47,8 +47,8 @@ def _create_refresh_token(user_id: str) -> str:
             "exp": int(expire.timestamp()),
             "token_use": "refresh",
         },
-        settings.SECRET_KEY,
-        algorithm=settings.ALGORITHM,
+        backend_settings.SECRET_KEY,
+        algorithm=backend_settings.ALGORITHM,
     )
 
 
@@ -97,8 +97,8 @@ def refresh_token(body: RefreshTokenRequest, db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(
             body.refresh_token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
+            backend_settings.SECRET_KEY,
+            algorithms=[backend_settings.ALGORITHM],
         )
     except JWTError as exc:
         raise HTTPException(
