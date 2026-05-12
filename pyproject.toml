@@ -28,6 +28,9 @@ dependencies = [
     "statsmodels",
     "pyarrow",
     "joblib",
+    "datasets",
+    "pyyaml",
+    "python-dotenv"
 ]
 
 [project.optional-dependencies]

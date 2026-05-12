@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db.models import User
 from app.core.config import settings
-from app.ml.nlp_categorizer import TransactionCategorizer
+from ml.models.categorizer import TransactionCategorizer
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 ml_categorizer = TransactionCategorizer()

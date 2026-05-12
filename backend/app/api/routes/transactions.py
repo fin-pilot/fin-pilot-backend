@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_categorizer, get_current_user
 from app.db.database import get_db
 from app.db.models import Account, Transaction, TransactionType, User
-from app.ml.nlp_categorizer import TransactionCategorizer
+from ml.models.categorizer import TransactionCategorizer
 from app.schemas.transaction import (
     PredictCategoryRequest,
     PredictCategoryResponse,

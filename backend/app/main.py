@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-
+from shared.logging import setup_logging
 from app.api.routes import (
     auth,
     users,
@@ -9,6 +9,8 @@ from app.api.routes import (
     budgets,
     analytics,
 )
+
+setup_logging()
 
 app = FastAPI(
     title="Personal Finance Management System API",

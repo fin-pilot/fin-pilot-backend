@@ -16,7 +16,7 @@ from app.db.models import (
     TransactionType,
     User,
 )
-from app.ml.recommender import FinanceRecommender
+from ml.recommender import FinanceRecommender
 from app.schemas.analytics import (
     ForecastResponse,
     GenerateForecastRequest,
@@ -76,10 +76,7 @@ def get_summary(
         elif t.transaction_type == TransactionType.EXPENSE:
             expense += t.amount
 
-        if (
-            t.transaction_type == TransactionType.EXPENSE
-            and t.category
-        ):
+        if t.transaction_type == TransactionType.EXPENSE and t.category:
             name = t.category.name
             by_cat[name] = by_cat.get(name, 0.0) + t.amount
 
@@ -118,7 +115,9 @@ def generate_forecast(
 
     result = forecaster.forecast(steps=req.days_to_forecast)
     last_ts = pd.Timestamp(forecaster.series.index[-1])
-    dates = [last_ts + pd.Timedelta(days=i + 1) for i in range(req.days_to_forecast)]
+    dates = [
+        last_ts + pd.Timedelta(days=i + 1) for i in range(req.days_to_forecast)
+    ]
 
     db.query(Forecast).filter(Forecast.user_id == current_user.id).delete()
 
@@ -234,7 +233,7 @@ def isolation_anomaly_amounts(
     current_user: User = Depends(get_current_user),
 ):
     """Return expense amounts flagged as anomalies by an isolation forest."""
-    from app.ml.anomaly_detector import AnomalyDetector
+    from ml.anomaly_detector import AnomalyDetector
 
     rows = (
         db.query(Transaction.amount)
