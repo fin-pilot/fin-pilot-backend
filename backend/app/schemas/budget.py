@@ -23,6 +23,7 @@ class BudgetUpdate(BaseModel):
 class BudgetResponse(BudgetBase):
     id: UUID4
     user_id: UUID4
+    name: str
     spent_amount: float = 0.0
 
     model_config = ConfigDict(from_attributes=True)

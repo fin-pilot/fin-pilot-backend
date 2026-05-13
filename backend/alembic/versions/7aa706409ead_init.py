@@ -1,8 +1,8 @@
 """Init
 
-Revision ID: a6e06ceb840c
+Revision ID: 7aa706409ead
 Revises: 
-Create Date: 2026-05-14 01:07:29.315981
+Create Date: 2026-05-14 01:51:29.722233
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'a6e06ceb840c'
+revision: str = '7aa706409ead'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -35,33 +35,38 @@ def upgrade() -> None:
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('user_id', sa.Uuid(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
-    sa.Column('account_type', sa.Enum('CASH', 'CARD', name='accounttype'), nullable=True),
-    sa.Column('balance', sa.Float(), nullable=True),
-    sa.Column('currency', sa.String(), nullable=True),
+    sa.Column('account_type', sa.Enum('CASH', 'CARD', name='accounttype'), nullable=False),
+    sa.Column('balance', sa.Float(), nullable=False),
+    sa.Column('currency', sa.String(), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_accounts_id'), 'accounts', ['id'], unique=False)
+    op.create_index(op.f('ix_accounts_user_id'), 'accounts', ['user_id'], unique=False)
     op.create_table('categories',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('user_id', sa.Uuid(), nullable=True),
     sa.Column('name', sa.String(), nullable=False),
-    sa.Column('type', sa.Enum('INCOME', 'EXPENSE', 'TRANSFER', name='transactiontype'), nullable=False),
+    sa.Column('transaction_type', sa.Enum('INCOME', 'EXPENSE', 'TRANSFER', name='transactiontype'), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'name', 'transaction_type', name='uq_user_category')
     )
     op.create_index(op.f('ix_categories_id'), 'categories', ['id'], unique=False)
+    op.create_index(op.f('ix_categories_transaction_type'), 'categories', ['transaction_type'], unique=False)
+    op.create_index(op.f('ix_categories_user_id'), 'categories', ['user_id'], unique=False)
     op.create_table('forecasts',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('user_id', sa.Uuid(), nullable=False),
     sa.Column('target_date', sa.DateTime(timezone=True), nullable=False),
     sa.Column('predicted_amount', sa.Float(), nullable=False),
-    sa.Column('model_type', sa.String(), nullable=True),
+    sa.Column('model_type', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_forecasts_id'), 'forecasts', ['id'], unique=False)
+    op.create_index(op.f('ix_forecasts_user_id'), 'forecasts', ['user_id'], unique=False)
     op.create_table('goals',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('user_id', sa.Uuid(), nullable=False),
@@ -70,10 +75,12 @@ def upgrade() -> None:
     sa.Column('current_amount', sa.Float(), nullable=False),
     sa.Column('deadline', sa.Date(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_goals_id'), 'goals', ['id'], unique=False)
+    op.create_index(op.f('ix_goals_user_id'), 'goals', ['user_id'], unique=False)
     op.create_table('budgets',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('user_id', sa.Uuid(), nullable=False),
@@ -85,7 +92,9 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_budgets_category_id'), 'budgets', ['category_id'], unique=False)
     op.create_index(op.f('ix_budgets_id'), 'budgets', ['id'], unique=False)
+    op.create_index(op.f('ix_budgets_user_id'), 'budgets', ['user_id'], unique=False)
     op.create_table('recurring_transactions',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('user_id', sa.Uuid(), nullable=False),
@@ -93,16 +102,21 @@ def upgrade() -> None:
     sa.Column('category_id', sa.Uuid(), nullable=True),
     sa.Column('description', sa.String(), nullable=False),
     sa.Column('amount', sa.Float(), nullable=False),
-    sa.Column('type', sa.String(), nullable=True),
+    sa.Column('transaction_type', sa.Enum('INCOME', 'EXPENSE', 'TRANSFER', name='transactiontype'), nullable=False),
     sa.Column('interval', sa.Enum('DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY', name='recurringinterval'), nullable=False),
-    sa.Column('start_date', sa.Date(), nullable=True),
+    sa.Column('start_date', sa.Date(), nullable=False),
     sa.Column('next_date', sa.Date(), nullable=False),
-    sa.Column('is_active', sa.Boolean(), nullable=True),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.ForeignKeyConstraint(['account_id'], ['accounts.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['category_id'], ['categories.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_recurring_transactions_account_id'), 'recurring_transactions', ['account_id'], unique=False)
+    op.create_index(op.f('ix_recurring_transactions_category_id'), 'recurring_transactions', ['category_id'], unique=False)
+    op.create_index(op.f('ix_recurring_transactions_id'), 'recurring_transactions', ['id'], unique=False)
+    op.create_index(op.f('ix_recurring_transactions_next_date'), 'recurring_transactions', ['next_date'], unique=False)
+    op.create_index(op.f('ix_recurring_transactions_user_id'), 'recurring_transactions', ['user_id'], unique=False)
     op.create_table('transactions',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('account_id', sa.Uuid(), nullable=False),
@@ -117,39 +131,67 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['destination_account_id'], ['accounts.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_transactions_account_id'), 'transactions', ['account_id'], unique=False)
+    op.create_index(op.f('ix_transactions_category_id'), 'transactions', ['category_id'], unique=False)
     op.create_index(op.f('ix_transactions_description'), 'transactions', ['description'], unique=False)
+    op.create_index(op.f('ix_transactions_destination_account_id'), 'transactions', ['destination_account_id'], unique=False)
     op.create_index(op.f('ix_transactions_id'), 'transactions', ['id'], unique=False)
+    op.create_index(op.f('ix_transactions_transaction_date'), 'transactions', ['transaction_date'], unique=False)
+    op.create_index(op.f('ix_transactions_transaction_type'), 'transactions', ['transaction_type'], unique=False)
     op.create_table('user_transaction_rules',
     sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('user_id', sa.Uuid(), nullable=True),
-    sa.Column('keyword', sa.String(), nullable=True),
-    sa.Column('category_id', sa.Uuid(), nullable=True),
-    sa.ForeignKeyConstraint(['category_id'], ['categories.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.Column('user_id', sa.Uuid(), nullable=False),
+    sa.Column('keyword', sa.String(), nullable=False),
+    sa.Column('category_id', sa.Uuid(), nullable=False),
+    sa.ForeignKeyConstraint(['category_id'], ['categories.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'keyword', name='uq_user_keyword')
     )
+    op.create_index(op.f('ix_user_transaction_rules_category_id'), 'user_transaction_rules', ['category_id'], unique=False)
     op.create_index(op.f('ix_user_transaction_rules_id'), 'user_transaction_rules', ['id'], unique=False)
     op.create_index(op.f('ix_user_transaction_rules_keyword'), 'user_transaction_rules', ['keyword'], unique=False)
+    op.create_index(op.f('ix_user_transaction_rules_user_id'), 'user_transaction_rules', ['user_id'], unique=False)
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_index(op.f('ix_user_transaction_rules_user_id'), table_name='user_transaction_rules')
     op.drop_index(op.f('ix_user_transaction_rules_keyword'), table_name='user_transaction_rules')
     op.drop_index(op.f('ix_user_transaction_rules_id'), table_name='user_transaction_rules')
+    op.drop_index(op.f('ix_user_transaction_rules_category_id'), table_name='user_transaction_rules')
     op.drop_table('user_transaction_rules')
+    op.drop_index(op.f('ix_transactions_transaction_type'), table_name='transactions')
+    op.drop_index(op.f('ix_transactions_transaction_date'), table_name='transactions')
     op.drop_index(op.f('ix_transactions_id'), table_name='transactions')
+    op.drop_index(op.f('ix_transactions_destination_account_id'), table_name='transactions')
     op.drop_index(op.f('ix_transactions_description'), table_name='transactions')
+    op.drop_index(op.f('ix_transactions_category_id'), table_name='transactions')
+    op.drop_index(op.f('ix_transactions_account_id'), table_name='transactions')
     op.drop_table('transactions')
+    op.drop_index(op.f('ix_recurring_transactions_user_id'), table_name='recurring_transactions')
+    op.drop_index(op.f('ix_recurring_transactions_next_date'), table_name='recurring_transactions')
+    op.drop_index(op.f('ix_recurring_transactions_id'), table_name='recurring_transactions')
+    op.drop_index(op.f('ix_recurring_transactions_category_id'), table_name='recurring_transactions')
+    op.drop_index(op.f('ix_recurring_transactions_account_id'), table_name='recurring_transactions')
     op.drop_table('recurring_transactions')
+    op.drop_index(op.f('ix_budgets_user_id'), table_name='budgets')
     op.drop_index(op.f('ix_budgets_id'), table_name='budgets')
+    op.drop_index(op.f('ix_budgets_category_id'), table_name='budgets')
     op.drop_table('budgets')
+    op.drop_index(op.f('ix_goals_user_id'), table_name='goals')
+    op.drop_index(op.f('ix_goals_id'), table_name='goals')
     op.drop_table('goals')
+    op.drop_index(op.f('ix_forecasts_user_id'), table_name='forecasts')
     op.drop_index(op.f('ix_forecasts_id'), table_name='forecasts')
     op.drop_table('forecasts')
+    op.drop_index(op.f('ix_categories_user_id'), table_name='categories')
+    op.drop_index(op.f('ix_categories_transaction_type'), table_name='categories')
     op.drop_index(op.f('ix_categories_id'), table_name='categories')
     op.drop_table('categories')
+    op.drop_index(op.f('ix_accounts_user_id'), table_name='accounts')
     op.drop_index(op.f('ix_accounts_id'), table_name='accounts')
     op.drop_table('accounts')
     op.drop_index(op.f('ix_users_id'), table_name='users')

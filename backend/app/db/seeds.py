@@ -37,7 +37,7 @@ def seed_categories(db: Session) -> None:
                 id=uuid.uuid4(),
                 user_id=None,
                 name=name,
-                type=TransactionType.EXPENSE,
+                transaction_type=TransactionType.EXPENSE,
             )
         )
 
@@ -47,7 +47,7 @@ def seed_categories(db: Session) -> None:
                 id=uuid.uuid4(),
                 user_id=None,
                 name=name,
-                type=TransactionType.INCOME,
+                transaction_type=TransactionType.INCOME,
             )
         )
 

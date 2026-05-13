@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from datetime import date, datetime, time, timedelta, timezone
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, cast
 
 import pandas as pd
 from fastapi import APIRouter, Depends, Query
@@ -68,9 +68,9 @@ def get_summary(
     by_cat, daily_totals_map = {}, {}
 
     for t in transactions:
-        if t.type == TransactionType.INCOME:
+        if t.transaction_type == TransactionType.INCOME:
             income += t.amount
-        elif t.type == TransactionType.EXPENSE:
+        elif t.transaction_type == TransactionType.EXPENSE:
             expense += t.amount
             if t.category:
                 by_cat[t.category.name] = (
@@ -80,7 +80,9 @@ def get_summary(
         date_str = t.transaction_date.date().isoformat()
         daily_totals_map.setdefault(date_str, 0.0)
         daily_totals_map[date_str] += (
-            t.amount if t.type == TransactionType.INCOME else -t.amount
+            t.amount
+            if t.transaction_type == TransactionType.INCOME
+            else -t.amount
         )
 
     daily_totals_list = [
@@ -109,7 +111,7 @@ def get_spending_by_category(
         .join(Account)
         .filter(
             Account.user_id == current_user.id,
-            Transaction.type == transaction_type,
+            Transaction.transaction_type == transaction_type,
         )
     )
     for f in _range_filters(start_date, end_date):
@@ -123,13 +125,15 @@ def get_spending_by_category(
         cat_totals[cat_name] = cat_totals.get(cat_name, 0.0) + t.amount
         total_amount += t.amount
 
+    total = cast(float, total_amount)
+
     result = [
         CategorySpending(
             category_name=name,
-            amount=round(amount, 2),
+            amount=round(cast(float, amount), 2),
             percentage=(
-                round((amount / total_amount * 100), 2)
-                if total_amount > 0
+                round((cast(float, amount) / total * 100), 2)
+                if total > 0
                 else 0.0
             ),
         )
@@ -161,8 +165,8 @@ def get_cashflow(
 
     data = []
     for t in transactions:
-        inc = t.amount if t.type == TransactionType.INCOME else 0.0
-        exp = t.amount if t.type == TransactionType.EXPENSE else 0.0
+        inc = t.amount if t.transaction_type == TransactionType.INCOME else 0.0
+        exp = t.amount if t.transaction_type == TransactionType.EXPENSE else 0.0
         data.append({"date": t.transaction_date, "income": inc, "expense": exp})
 
     df = pd.DataFrame(data)
@@ -197,7 +201,7 @@ def get_budget_utilization(
 
     for b in budgets:
         spent = getattr(b, "spent_amount", 0.0)
-        pct = (spent / b.amount * 100) if b.amount > 0 else 0.0
+        pct = (spent / b.limit_amount * 100) if b.limit_amount > 0 else 0.0
         status = (
             "green" if pct < 75.0 else ("yellow" if pct <= 100.0 else "red")
         )
@@ -206,7 +210,7 @@ def get_budget_utilization(
             BudgetUtilization(
                 budget_id=b.id,
                 budget_name=b.name,
-                amount_limit=b.amount,
+                amount_limit=b.limit_amount,
                 spent_amount=spent,
                 percentage=round(pct, 2),
                 status=status,
@@ -241,7 +245,7 @@ def get_anomalies(
         .join(Account)
         .filter(
             Account.user_id == current_user.id,
-            Transaction.type == TransactionType.EXPENSE,
+            Transaction.transaction_type == TransactionType.EXPENSE,
             Transaction.transaction_date
             >= datetime.combine(start_date, time.min, tzinfo=timezone.utc),
         )
@@ -300,10 +304,12 @@ def get_recommendations(
         .all()
     )
 
-    inc = sum(t.amount for t in txs if t.type == TransactionType.INCOME)
+    inc = sum(
+        t.amount for t in txs if t.transaction_type == TransactionType.INCOME
+    )
     exp_by_cat = {}
     for t in txs:
-        if t.type == TransactionType.EXPENSE and t.category:
+        if t.transaction_type == TransactionType.EXPENSE and t.category:
             exp_by_cat[t.category.name] = (
                 exp_by_cat.get(t.category.name, 0.0) + t.amount
             )
