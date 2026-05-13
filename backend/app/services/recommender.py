@@ -38,7 +38,8 @@ class FinanceRecommender:
 
         if total_expense > 0:
             highest_cat = max(
-                expenses_by_category, key=expenses_by_category.get
+                expenses_by_category,
+                key=lambda category: expenses_by_category[category],
             )
             highest_amt = expenses_by_category[highest_cat]
             if (highest_amt / total_expense) > 0.4:
