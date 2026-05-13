@@ -33,7 +33,7 @@ class BackendSettings(BaseSettings):
 
 @lru_cache
 def get_backend_settings() -> BackendSettings:
-    return BackendSettings()
+    return BackendSettings(SECRET_KEY="", DATABASE_URL="")
 
 
 backend_settings = get_backend_settings()
