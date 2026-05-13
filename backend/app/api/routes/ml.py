@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-
+from datetime import datetime, timedelta
 from backend.app.db.database import get_db
 from backend.app.api.dependencies import get_current_user
 from backend.app.db.models import User, Category, TransactionType
@@ -10,6 +10,7 @@ from backend.app.schemas.ml import (
     PredictCategoryResponse,
     PredictForecastResponse,
     SeasonalityResponse,
+    ForecastPoint,
 )
 
 router = APIRouter(prefix="/api/ml", tags=["machine-learning"])
@@ -31,7 +32,7 @@ async def categorize_description(
             db.query(Category)
             .filter(
                 Category.name == "Other",
-                Category.type == TransactionType.EXPENSE,
+                Category.transaction_type == TransactionType.EXPENSE,
                 Category.user_id.is_(None),
             )
             .first()
@@ -70,23 +71,43 @@ async def train_forecaster(
         ) from e
 
 
-@router.get("/forecast/predict", response_model=PredictForecastResponse)
+@router.get(
+    "/forecast/predict",
+    response_model=PredictForecastResponse,
+)
 async def predict_expenses(
     horizon: int = Query(
-        30, ge=1, le=90, description="Кількість днів для прогнозу"
+        30,
+        ge=1,
+        le=90,
+        description="Кількість днів для прогнозу",
     ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    predictions = ml_service.get_forecast_predictions(
-        db, current_user.id, horizon
+    raw_predictions = ml_service.get_forecast_predictions(
+        db,
+        current_user.id,
+        horizon,
     )
 
-    if not predictions:
+    if not raw_predictions:
         return PredictForecastResponse(
             predictions=[],
-            message="Модель ще не навчена або недостатньо даних для прогнозу",
+            message=(
+                "Модель ще не навчена або " "недостатньо даних для прогнозу"
+            ),
         )
+
+    today = datetime.utcnow().date()
+
+    predictions = [
+        ForecastPoint(
+            date=today + timedelta(days=index + 1),
+            predicted_amount=amount,
+        )
+        for index, amount in enumerate(raw_predictions)
+    ]
 
     return PredictForecastResponse(
         predictions=predictions,
