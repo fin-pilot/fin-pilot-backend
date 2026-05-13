@@ -5,7 +5,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import List, Optional, Literal
 
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
@@ -24,14 +24,10 @@ from app.schemas.analytics import (
     CashflowData,
     CategorySpending,
     ForecastResponse,
-    GenerateForecastRequest,
     RecommendationsResponse,
     SummaryResponse,
 )
-from app.services.expense_series import daily_expense_dataframe
 from app.services.recommender import FinanceRecommender
-from ml.models.forecaster import ExpenseForecaster
-from shared.config import get_settings
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -217,55 +213,6 @@ def get_budget_utilization(
             )
         )
     return result
-
-
-@router.post("/forecast/generate", status_code=201)
-def generate_forecast(
-    req: GenerateForecastRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    df = daily_expense_dataframe(db, current_user.id)
-    if len(df) < 14:
-        raise HTTPException(
-            status_code=400, detail="Потрібно хоча б 14 днів історії витрат."
-        )
-
-    try:
-        settings = get_settings()
-        forecaster = ExpenseForecaster(settings.ml)
-
-        forecaster.load_model()
-
-        forecaster.update(df)
-
-        predictions = forecaster.predict(steps=req.days_to_forecast)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Помилка моделі: {str(exc)}"
-        ) from exc
-
-    db.query(Forecast).filter(Forecast.user_id == current_user.id).delete()
-    dates = [
-        date.today() + timedelta(days=i + 1)
-        for i in range(req.days_to_forecast)
-    ]
-
-    for i, amt in enumerate(predictions):
-        ts = datetime.combine(dates[i], time.min, tzinfo=timezone.utc)
-        db.add(
-            Forecast(
-                user_id=current_user.id,
-                target_date=ts,
-                predicted_amount=max(0.0, float(amt)),
-                model_type="SARIMA",
-            )
-        )
-
-    db.commit()
-    return {
-        "message": f"Forecast for {req.days_to_forecast} days generated successfully."
-    }
 
 
 @router.get("/forecast", response_model=List[ForecastResponse])
