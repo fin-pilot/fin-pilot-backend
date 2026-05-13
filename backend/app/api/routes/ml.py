@@ -31,7 +31,7 @@ async def categorize_description(
             db.query(Category)
             .filter(
                 Category.name == "Other",
-                Category.transaction_type == TransactionType.EXPENSE,
+                Category.type == TransactionType.EXPENSE,
                 Category.user_id.is_(None),
             )
             .first()

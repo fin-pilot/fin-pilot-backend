@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import Null, or_
 from typing import List
 import uuid
 
@@ -24,7 +24,7 @@ def get_categories(
     return (
         db.query(Category)
         .filter(
-            or_(Category.user_id == current_user.id, Category.user_id is None)
+            or_(Category.user_id == current_user.id, Category.user_id.is_(None))
         )
         .all()
     )

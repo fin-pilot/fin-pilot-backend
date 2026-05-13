@@ -155,7 +155,7 @@ class MLService:
         category = (
             db.query(Category)
             .filter(
-                Category.transaction_type == TransactionType.EXPENSE,
+                Category.type == TransactionType.EXPENSE,
                 Category.name.ilike(label),
                 (Category.user_id == user_id) | (Category.user_id.is_(None)),
             )
