@@ -3,21 +3,15 @@ from sqlalchemy.orm import Session
 from backend.app.db.models import Category, TransactionType
 
 DEFAULT_EXPENSE_CATEGORIES = [
-    "Auto & Transport",
-    "Bills & Utilities",
-    "Entertainment",
-    "Fees & Charges",
     "Food & Dining",
-    "Groceries",
-    "Health & Fitness",
-    "Home",
-    "Kids",
-    "Misc Expenses",
-    "Personal Care",
-    "Pets",
-    "Shopping",
-    "Taxes",
-    "Travel",
+    "Transportation",
+    "Shopping & Retail",
+    "Entertainment & Recreation",
+    "Healthcare & Medical",
+    "Utilities & Services",
+    "Financial Services",
+    "Government & Legal",
+    "Charity & Donations",
     "Other",
 ]
 
