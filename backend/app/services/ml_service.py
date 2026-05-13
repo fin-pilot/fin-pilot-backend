@@ -155,7 +155,7 @@ class MLService:
         category = (
             db.query(Category)
             .filter(
-                Category.type == TransactionType.EXPENSE,
+                Category.transaction_type == TransactionType.EXPENSE,
                 Category.name.ilike(label),
                 (Category.user_id == user_id) | (Category.user_id.is_(None)),
             )
@@ -234,14 +234,14 @@ class MLService:
 
         transactions = (
             db.query(
-                Transaction.date,
+                Transaction.transaction_date,
                 Transaction.amount,
             )
             .filter(
-                Transaction.user_id == user_id,
+                Transaction.account.user_id == user_id,
                 Transaction.transaction_type == TransactionType.EXPENSE,
             )
-            .order_by(Transaction.date.asc())
+            .order_by(Transaction.transaction_date.asc())
             .all()
         )
 
