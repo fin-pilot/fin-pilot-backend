@@ -19,11 +19,17 @@ from fastapi import (
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user
-from app.db.database import get_db
-from app.db.models import Account, Transaction, TransactionType, User, Category
-from app.services.ml_service import ml_service
-from app.schemas.transaction import (
+from backend.app.api.dependencies import get_current_user
+from backend.app.db.database import get_db
+from backend.app.db.models import (
+    Account,
+    Transaction,
+    TransactionType,
+    User,
+    Category,
+)
+from backend.app.services.ml_service import ml_service
+from backend.app.schemas.transaction import (
     TransactionCreate,
     TransactionImportResult,
     TransactionResponse,

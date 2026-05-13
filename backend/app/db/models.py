@@ -14,7 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import functions
-from app.db.database import Base
+from backend.app.db.database import Base
 
 
 class TransactionType(str, enum.Enum):

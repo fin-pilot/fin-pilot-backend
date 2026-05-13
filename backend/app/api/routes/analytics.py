@@ -8,9 +8,9 @@ import pandas as pd
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user
-from app.db.database import get_db
-from app.db.models import (
+from backend.app.api.dependencies import get_current_user
+from backend.app.db.database import get_db
+from backend.app.db.models import (
     Account,
     Budget,
     Forecast,
@@ -18,7 +18,7 @@ from app.db.models import (
     TransactionType,
     User,
 )
-from app.schemas.analytics import (
+from backend.app.schemas.analytics import (
     AnomalyItem,
     BudgetUtilization,
     CashflowData,
@@ -27,7 +27,7 @@ from app.schemas.analytics import (
     RecommendationsResponse,
     SummaryResponse,
 )
-from app.services.recommender import FinanceRecommender
+from backend.app.services.recommender import FinanceRecommender
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 

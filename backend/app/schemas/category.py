@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, UUID4
 from typing import Optional
-from app.db.models import TransactionType
+from backend.app.db.models import TransactionType
 
 
 class CategoryBase(BaseModel):

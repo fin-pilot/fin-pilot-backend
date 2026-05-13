@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
-from app.db.models import (
+from backend.app.db.models import (
     RecurringTransaction,
     Transaction,
     RecurringInterval,

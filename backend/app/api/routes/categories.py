@@ -4,14 +4,14 @@ from sqlalchemy import or_
 from typing import List
 import uuid
 
-from app.db.database import get_db
-from app.db.models import Category, User
-from app.schemas.category import (
+from backend.app.db.database import get_db
+from backend.app.db.models import Category, User
+from backend.app.schemas.category import (
     CategoryCreate,
     CategoryResponse,
     CategoryUpdate,
 )
-from app.api.dependencies import get_current_user
+from backend.app.api.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 

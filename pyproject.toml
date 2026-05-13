@@ -34,6 +34,7 @@ dependencies = [
     "python-dotenv",
     "pmdarima",
     "kagglehub",
+    "typing-inspect",
 ]
 
 [project.optional-dependencies]

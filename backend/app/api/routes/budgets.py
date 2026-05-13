@@ -4,8 +4,8 @@ from sqlalchemy import func
 from typing import List
 from uuid import UUID
 
-from app.db.database import get_db
-from app.db.models import (
+from backend.app.db.database import get_db
+from backend.app.db.models import (
     Account,
     Budget,
     Category,
@@ -13,8 +13,12 @@ from app.db.models import (
     TransactionType,
     User,
 )
-from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetUpdate
-from app.api.dependencies import get_current_user
+from backend.app.schemas.budget import (
+    BudgetCreate,
+    BudgetResponse,
+    BudgetUpdate,
+)
+from backend.app.api.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/budgets", tags=["budgets"])
 

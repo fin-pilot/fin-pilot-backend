@@ -1,18 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.db.database import get_db
-from app.api.dependencies import get_current_user
-from app.db.models import User, Category, TransactionType
-from app.services.ml_service import ml_service
-from app.schemas.ml import (
+from backend.app.db.database import get_db
+from backend.app.api.dependencies import get_current_user
+from backend.app.db.models import User, Category, TransactionType
+from backend.app.services.ml_service import ml_service
+from backend.app.schemas.ml import (
     PredictCategoryRequest,
     PredictCategoryResponse,
     PredictForecastResponse,
     SeasonalityResponse,
 )
 
-router = APIRouter(prefix="/api/ml", tags=["Machine Learning"])
+router = APIRouter(prefix="/api/ml", tags=["machine-learning"])
 
 
 @router.post("/categorize", response_model=PredictCategoryResponse)

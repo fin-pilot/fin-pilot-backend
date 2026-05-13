@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,10 +9,13 @@ from backend.app.services.recurring_service import (
     process_recurring_transactions,
 )
 from backend.app.services.ml_service import ml_service
-from ml.utils.model_loader import download_model_if_needed
+from ml.utils.model_loader import (
+    download_categorizer_model_if_needed,
+    download_forecaster_model_if_needed,
+)
 from shared.logging import setup_logging
 
-from app.api.routes import (
+from backend.app.api.routes import (
     auth,
     users,
     accounts,
@@ -35,13 +39,19 @@ def run_recurring_engine():
         db.close()
 
 
+@repeat_every(seconds=60 * 60 * 24)
+async def recurring_task():
+    run_recurring_engine()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    download_model_if_needed()
+    download_categorizer_model_if_needed()
+    download_forecaster_model_if_needed()
+
     ml_service.load_model()
 
-    decorated_task = repeat_every(seconds=60 * 60 * 24)(run_recurring_engine)
-    decorated_task()
+    asyncio.create_task(recurring_task())
 
     yield
 

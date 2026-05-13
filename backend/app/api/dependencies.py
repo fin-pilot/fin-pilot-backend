@@ -1,20 +1,26 @@
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
+from fastapi import HTTPException
+from fastapi import status
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt, JWTError
+from jose import JWTError
+from jose import jwt
 from sqlalchemy.orm import Session
-from app.db.database import get_db
-from app.db.models import User
-from app.core.config import settings
-from ml.models.categorizer import TransactionCategorizer
+
+from backend.app.db.database import get_db
+from backend.app.db.models import User
+from backend.app.services.ml_service import (
+    ml_service,
+)
+from shared.config import backend_settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
-ml_categorizer = TransactionCategorizer()
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -25,15 +31,19 @@ def get_current_user(
     try:
         payload = jwt.decode(
             token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
+            backend_settings.SECRET_KEY,
+            algorithms=[backend_settings.ALGORITHM],
         )
 
         user_id = payload.get("sub")
+
         if not user_id:
             raise credentials_exception
 
-        if payload.get("token_use") not in (None, "access"):
+        if payload.get("token_use") not in (
+            None,
+            "access",
+        ):
             raise credentials_exception
 
     except JWTError as exc:
@@ -41,6 +51,7 @@ def get_current_user(
 
     try:
         uid_key = UUID(str(user_id))
+
     except ValueError as exc:
         raise credentials_exception from exc
 
@@ -53,9 +64,4 @@ def get_current_user(
 
 
 def get_categorizer():
-    if ml_categorizer.pipeline is None:
-        try:
-            ml_categorizer.load_model()
-        except FileNotFoundError:
-            pass
-    return ml_categorizer
+    return ml_service.categorizer

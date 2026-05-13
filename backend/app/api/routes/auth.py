@@ -9,9 +9,9 @@ from pwdlib.hashers.bcrypt import BcryptHasher
 from sqlalchemy.orm import Session
 
 from shared.config import backend_settings
-from app.db.database import get_db
-from app.db.models import User
-from app.schemas.user import (
+from backend.app.db.database import get_db
+from backend.app.db.models import User
+from backend.app.schemas.user import (
     RefreshTokenRequest,
     Token,
     UserCreate,

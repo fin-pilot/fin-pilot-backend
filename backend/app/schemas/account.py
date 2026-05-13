@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, UUID4
 from typing import Optional
-from app.db.models import AccountType
+from backend.app.db.models import AccountType
 
 
 class AccountBase(BaseModel):

@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, UUID4, Field, model_validator
 from typing import List, Optional
 from datetime import datetime
-from app.db.models import TransactionType
+from backend.app.db.models import TransactionType
 
 
 class TransactionBase(BaseModel):

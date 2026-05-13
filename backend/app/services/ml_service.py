@@ -6,7 +6,7 @@ import pandas as pd
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.db.models import (
+from backend.app.db.models import (
     Category,
     Transaction,
     TransactionType,

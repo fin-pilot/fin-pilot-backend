@@ -4,15 +4,17 @@ from typing import List
 from uuid import UUID
 from datetime import date
 
-from app.db.database import get_db
-from app.db.models import RecurringTransaction, User
-from app.schemas.recurring import (
+from backend.app.db.database import get_db
+from backend.app.db.models import RecurringTransaction, User
+from backend.app.schemas.recurring import (
     RecurringCreate,
     RecurringResponse,
     RecurringUpdate,
 )
-from app.api.dependencies import get_current_user
-from app.services.recurring_service import process_recurring_transactions
+from backend.app.api.dependencies import get_current_user
+from backend.app.services.recurring_service import (
+    process_recurring_transactions,
+)
 
 router = APIRouter(prefix="/api/recurring", tags=["recurring"])
 

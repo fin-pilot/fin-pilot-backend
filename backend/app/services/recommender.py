@@ -1,5 +1,5 @@
 from typing import Dict, List
-from app.schemas.analytics import RecommendationItem
+from backend.app.schemas.analytics import RecommendationItem
 
 
 class FinanceRecommender:

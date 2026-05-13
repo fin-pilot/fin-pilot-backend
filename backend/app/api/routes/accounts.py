@@ -3,10 +3,14 @@ from sqlalchemy.orm import Session
 from typing import List
 import uuid
 
-from app.db.database import get_db
-from app.db.models import Account, User
-from app.schemas.account import AccountCreate, AccountResponse, AccountUpdate
-from app.api.dependencies import get_current_user
+from backend.app.db.database import get_db
+from backend.app.db.models import Account, User
+from backend.app.schemas.account import (
+    AccountCreate,
+    AccountResponse,
+    AccountUpdate,
+)
+from backend.app.api.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 

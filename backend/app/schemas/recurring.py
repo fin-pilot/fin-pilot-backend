@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import date
 from uuid import UUID
-from app.db.models import RecurringInterval
+from backend.app.db.models import RecurringInterval
 
 
 class RecurringBase(BaseModel):

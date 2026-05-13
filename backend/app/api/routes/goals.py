@@ -3,15 +3,15 @@ from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 
-from app.db.database import get_db
-from app.db.models import Goal, User
-from app.schemas.goal import (
+from backend.app.db.database import get_db
+from backend.app.db.models import Goal, User
+from backend.app.schemas.goal import (
     GoalCreate,
     GoalResponse,
     GoalUpdate,
     GoalContribute,
 )
-from app.api.dependencies import get_current_user
+from backend.app.api.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/goals", tags=["goals"])
 
