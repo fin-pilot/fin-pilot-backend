@@ -43,7 +43,7 @@ async def recurring_task():
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(application: FastAPI):  # pylint: disable=unused-argument
     download_categorizer_model_if_needed()
     download_forecaster_model_if_needed()
 
