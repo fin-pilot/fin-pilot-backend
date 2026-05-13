@@ -13,7 +13,9 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
-def evaluate_model(model, x_test, y_test, show_confusion_matrix=False):
+def evaluate_categorizer_model(
+    model, x_test, y_test, show_confusion_matrix=False
+):
     logger.info("Evaluating model...")
 
     y_pred = model.predict(x_test)

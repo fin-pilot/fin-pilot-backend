@@ -2,9 +2,9 @@ import logging
 from sklearn.model_selection import train_test_split
 from shared.config import ml_settings
 from shared.logging import setup_logging
-from ml.data.loader import load_transaction_data
-from ml.evaluation.evaluate import evaluate_model
 from ml.models.categorizer import TransactionCategorizer
+from ml.utils.data_loader import load_categorizer_data
+from ml.evaluation.categorizer_evaluator import evaluate_categorizer_model
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def main():
     logger.info("Starting training pipeline.")
 
-    x, y = load_transaction_data()
+    x, y = load_categorizer_data()
 
     x_train, x_test, y_train, y_test = train_test_split(
         x,
@@ -31,7 +31,7 @@ def main():
 
     model.train(x_train, y_train)
 
-    metrics = evaluate_model(model.pipeline, x_test, y_test)
+    metrics = evaluate_categorizer_model(model.pipeline, x_test, y_test)
 
     logger.info(
         "Final accuracy: %.4f",

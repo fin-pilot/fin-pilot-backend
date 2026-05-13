@@ -9,7 +9,7 @@ description = "Backend API for the Personal Finance Management System with ML ca
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
-    { name = "Oleksii Palamarchuk", email = "oleksiypalamarchuck@gmail.com" }
+    { name = "Oleksii Palamarchuk", email = "oleksiypalamarchuck@gmail.com" },
 ]
 dependencies = [
     "python-multipart",
@@ -31,14 +31,12 @@ dependencies = [
     "datasets",
     "pyyaml",
     "python-dotenv",
-    "pmdarima"
+    "pmdarima",
+    "kagglehub",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "black",
-    "pylint"
-]
+dev = ["black", "pylint"]
 
 [tool.black]
 line-length = 80

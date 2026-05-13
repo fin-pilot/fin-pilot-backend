@@ -1,75 +1,232 @@
-import os
-import pandas as pd
-import joblib
 import logging
-from statsmodels.tsa.statespace.sarimax import SARIMAX
-from pmdarima import auto_arima
-from uuid import UUID
+from pathlib import Path
 
+import joblib
+import numpy as np
+import pandas as pd
+import pmdarima as pm
+from numpy.linalg import LinAlgError
+
+from shared.config import MLSettings
+from shared.logging.config import setup_logging
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
 
 class ExpenseForecaster:
-    def __init__(self, models_dir: str = "ml/saved_models"):
-        self.models_dir = models_dir
-        self.base_model_path = os.path.join(models_dir, "base_sarima.pkl")
-        if not os.path.exists(self.models_dir):
-            os.makedirs(self.models_dir)
+    def __init__(self, config: MLSettings):
+        self.config = config
 
-    def _get_user_path(self, user_id: UUID) -> str:
-        return os.path.join(self.models_dir, f"forecaster_{user_id}.pkl")
+        self.sarima_cfg = config.forecaster.sarima
 
-    def preprocess(self, transactions: list) -> pd.Series:
-        if not transactions:
+        logger.info("Initializing expense forecaster.")
+
+        self.model = None
+
+    def preprocess(
+        self,
+        df: pd.DataFrame,
+    ) -> pd.Series:
+        if df.empty:
             return pd.Series(dtype=float)
 
-        df = pd.DataFrame(
-            [
-                {"date": t.transaction_date, "amount": t.amount}
-                for t in transactions
-            ]
+        prepared_df = self._prepare_dataframe(df)
+
+        return self._build_time_series(prepared_df)
+
+    def train(
+        self,
+        df: pd.DataFrame,
+    ) -> bool:
+        logger.info("Training SARIMA model...")
+
+        ts = self.preprocess(df)
+
+        if not self._has_enough_data(ts):
+            logger.warning(
+                "Not enough data to fit " "SARIMA. Need at least %d periods.",
+                2 * self.sarima_cfg.seasonal_period,
+            )
+
+            return False
+
+        try:
+            self.model = self._create_model(ts)
+
+            logger.info("SARIMA model trained successfully.")
+
+            return True
+
+        except (
+            ValueError,
+            TypeError,
+            LinAlgError,
+        ) as error:
+            logger.error(
+                "Failed to train SARIMA model: %s",
+                error,
+            )
+
+            return False
+
+    def update(
+        self,
+        df: pd.DataFrame,
+    ) -> bool:
+        if self.model is None:
+            logger.warning("Cannot update: model is not loaded.")
+
+            return False
+
+        ts = self.preprocess(df)
+
+        if ts.empty:
+            logger.info("No new data to update model.")
+
+            return True
+
+        try:
+            self.model.update(ts)
+
+            logger.info("SARIMA model updated successfully.")
+
+            return True
+
+        except (
+            ValueError,
+            TypeError,
+            LinAlgError,
+        ) as error:
+            logger.error(
+                "Failed to update SARIMA model: %s",
+                error,
+            )
+
+            return False
+
+    def predict(
+        self,
+        steps: int,
+    ) -> list[float]:
+        if self.model is None:
+            logger.warning("Cannot predict: model is not loaded.")
+
+            return []
+
+        try:
+            forecast = self.model.predict(n_periods=steps)
+
+            return self._format_forecast(forecast)
+
+        except (
+            ValueError,
+            TypeError,
+            LinAlgError,
+        ) as error:
+            logger.error(
+                "Prediction failed: %s",
+                error,
+            )
+
+            return []
+
+    def save_model(self) -> None:
+        if self.model is None:
+            logger.warning("Cannot save: model is empty.")
+
+            return
+
+        model_path = self._get_model_path()
+
+        model_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
         )
-        df["date"] = pd.to_datetime(df["date"])
-        series = df.set_index("date")["amount"].resample("D").sum().fillna(0)
-        return series
 
-    def train_user_model(self, user_id: UUID, series: pd.Series):
-        logger.info(f"Training full SARIMA for user {user_id}...")
-
-        stepwise_model = auto_arima(
-            series, seasonal=True, m=7, suppress_warnings=True
+        logger.info(
+            "Saving model to %s",
+            model_path,
         )
 
-        model = SARIMAX(
-            series,
-            order=stepwise_model.order,
-            seasonal_order=stepwise_model.seasonal_order,
-            enforce_stationarity=False,
+        joblib.dump(
+            self.model,
+            model_path,
         )
-        result = model.fit(disp=False)
 
-        joblib.dump(result, self._get_user_path(user_id))
-        return result
+    def load_model(self) -> None:
+        model_path = self._get_model_path()
 
-    def get_forecast(
-        self, user_id: UUID, fresh_transactions: list, steps: int = 30
+        if not model_path.exists():
+            logger.warning(
+                "Model file not found: %s",
+                model_path,
+            )
+
+            self.model = None
+
+            return
+
+        logger.info(
+            "Loading model from %s",
+            model_path,
+        )
+
+        self.model = joblib.load(model_path)
+
+    def _prepare_dataframe(
+        self,
+        df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        prepared_df = df.copy()
+
+        prepared_df["date"] = pd.to_datetime(prepared_df["date"])
+
+        prepared_df["amount"] = prepared_df["amount"].abs()
+
+        prepared_df.set_index(
+            "date",
+            inplace=True,
+        )
+
+        return prepared_df
+
+    def _build_time_series(
+        self,
+        df: pd.DataFrame,
+    ) -> pd.Series:
+        return df["amount"].resample(self.sarima_cfg.freq).sum().fillna(0.0)
+
+    def _has_enough_data(
+        self,
+        ts: pd.Series,
+    ) -> bool:
+        minimum_periods = 2 * self.sarima_cfg.seasonal_period
+
+        return len(ts) >= minimum_periods
+
+    def _create_model(
+        self,
+        ts: pd.Series,
     ):
-        user_path = self._get_user_path(user_id)
+        return pm.auto_arima(
+            ts,
+            seasonal=self.sarima_cfg.seasonal,
+            m=self.sarima_cfg.seasonal_period,
+            stepwise=self.sarima_cfg.stepwise,
+            trace=self.sarima_cfg.trace,
+            error_action=self.sarima_cfg.error_action,
+            suppress_warnings=(self.sarima_cfg.suppress_warnings),
+        )
 
-        if os.path.exists(user_path):
-            result = joblib.load(user_path)
-        elif os.path.exists(self.base_model_path):
-            result = joblib.load(self.base_model_path)
-        else:
-            return {"error": "Base model not found. Initial training required."}
+    def _format_forecast(
+        self,
+        forecast: np.ndarray,
+    ) -> list[float]:
+        return np.round(
+            forecast.tolist(),
+            2,
+        ).tolist()
 
-        if fresh_transactions:
-            fresh_series = self.preprocess(fresh_transactions)
-            result = result.extend(fresh_series)
-            joblib.dump(result, user_path)
-
-        forecast = result.get_forecast(steps=steps)
-        return {
-            "predicted_mean": forecast.predicted_mean.to_dict(),
-            "last_date": result.model.data.orig_endog.index[-1].isoformat(),
-        }
+    def _get_model_path(self) -> Path:
+        return Path(self.config.forecaster.model.path)

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from ml.utils.downloader import download_model_if_needed
+from ml.utils.model_loader import download_model_if_needed
 from backend.app.services.ml_service import ml_service
 from shared.logging import setup_logging
 from app.api.routes import (

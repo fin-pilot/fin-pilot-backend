@@ -1,21 +1,45 @@
 dataset:
-  name: mitulshah/transaction-categorization
-  release_url: "https://github.com/PalamarchukOleksii/personal-finance-management-system/releases/download/v0.0.1/transaction_classifier.pkl"
+  categorizer:
+    name: mitulshah/transaction-categorization
+
+  forecaster:
+    name: artemkabseu/financial-transactions-dataset-expenses-and-income
+
 
 data:
   test_size: 0.2
   random_state: 42
 
-model:
-  path: ml/artifacts/transaction_classifier.pkl
 
-tfidf:
-  analyzer: char_wb
-  ngram_range: [2, 5]
-  min_df: 5
-  max_df: 0.5
+categorizer:
+  model:
+    path: ml/artifacts/categorizer/transaction_classifier.pkl
 
-svm:
-  class_weight: balanced
-  max_iter: 2000
-  random_state: 42
+    release_url: "https://github.com/PalamarchukOleksii/personal-finance-management-system/releases/download/v0.0.1/transaction_classifier.pkl"
+
+  tfidf:
+    analyzer: char_wb
+    ngram_range: [2, 5]
+    min_df: 5
+    max_df: 0.5
+
+  svm:
+    class_weight: balanced
+    max_iter: 2000
+    random_state: 42
+
+
+forecaster:
+  model:
+    path: ml/artifacts/forecaster/sarima_model.pkl
+
+    release_url: "https://github.com/PalamarchukOleksii/personal-finance-management-system/releases/download/v0.0.1/sarima_model.pkl"
+
+  sarima:
+    seasonal: true
+    seasonal_period: 12
+    freq: ME
+    stepwise: true
+    trace: false
+    error_action: ignore
+    suppress_warnings: true
