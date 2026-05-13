@@ -1,8 +1,8 @@
-from app.db.database import Base
-from app.core.config import settings
+from backend.app.db.database import Base
+from shared.config import backend_settings
 
 # pylint: disable=unused-import
-import app.db.models
+import backend.app.db.models
 
 import os
 import sys
@@ -22,7 +22,7 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-db_url = settings.DATABASE_URL
+db_url = backend_settings.DATABASE_URL
 config.set_main_option("sqlalchemy.url", db_url)
 
 

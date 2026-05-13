@@ -1,20 +1,14 @@
 import asyncio
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi_utils.tasks import repeat_every
-
+from shared.logging import setup_logging
 from backend.app.db.database import SESSION_LOCAL
+from backend.app.db.seeds import seed_categories
 from backend.app.services.recurring_service import (
     process_recurring_transactions,
 )
 from backend.app.services.ml_service import ml_service
-from ml.utils.model_loader import (
-    download_categorizer_model_if_needed,
-    download_forecaster_model_if_needed,
-)
-from shared.logging import setup_logging
-
 from backend.app.api.routes import (
     auth,
     users,
@@ -26,6 +20,10 @@ from backend.app.api.routes import (
     ml,
     goals,
     recurring,
+)
+from ml.utils.model_loader import (
+    download_categorizer_model_if_needed,
+    download_forecaster_model_if_needed,
 )
 
 setup_logging()
@@ -45,11 +43,18 @@ async def recurring_task():
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     download_categorizer_model_if_needed()
     download_forecaster_model_if_needed()
 
     ml_service.load_model()
+
+    db = SESSION_LOCAL()
+
+    try:
+        seed_categories(db)
+    finally:
+        db.close()
 
     asyncio.create_task(recurring_task())
 
