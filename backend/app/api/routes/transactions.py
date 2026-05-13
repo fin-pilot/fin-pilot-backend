@@ -147,6 +147,18 @@ def create_transaction(
     data = trans_in.model_dump()
     new_transaction = Transaction(**data)
     db.add(new_transaction)
+
+    if (
+        new_transaction.description
+        and new_transaction.transaction_type == TransactionType.EXPENSE
+    ):
+        ml_service.learn_from_user(
+            db,
+            current_user.id,
+            new_transaction.description,
+            new_transaction.category_id,
+        )
+
     db.commit()
     db.refresh(new_transaction)
     return new_transaction
@@ -166,20 +178,42 @@ def export_transactions(
     )
 
     def iter_csv():
-        yield (
-            "id,account_id,destination_account_id,category_id,amount,"
-            "description,transaction_type,transaction_date\n"
+        output = io.StringIO(newline="")
+        writer = csv.writer(output)
+
+        writer.writerow(
+            [
+                "id",
+                "account_id",
+                "destination_account_id",
+                "category_id",
+                "amount",
+                "description",
+                "transaction_type",
+                "transaction_date",
+            ]
         )
+
+        yield output.getvalue()
+
         for t in rows:
-            desc = (t.description or "").replace(",", ";").replace("\n", " ")
-            yield (
-                f"{t.id},{t.account_id},"
-                f"{t.destination_account_id or ''},"
-                f"{t.category_id or ''},"
-                f"{t.amount},{desc},"
-                f"{t.transaction_type.value},"
-                f"{t.transaction_date.isoformat()}\n"
+            output.seek(0)
+            output.truncate(0)
+
+            writer.writerow(
+                [
+                    t.id,
+                    t.account_id,
+                    t.destination_account_id or "",
+                    t.category_id or "",
+                    t.amount,
+                    t.description or "",
+                    t.transaction_type.value,
+                    t.transaction_date.isoformat(),
+                ]
             )
+
+            yield output.getvalue()
 
     return StreamingResponse(
         iter_csv(),
@@ -320,19 +354,22 @@ async def import_transactions_csv(
                 tx_type,
             )
 
-            db.add(
-                Transaction(
-                    account_id=account.id,
-                    destination_account_id=(
-                        dest_account.id if dest_account else None
-                    ),
-                    category_id=cat_id,
-                    amount=amount,
-                    description=desc,
-                    transaction_type=tx_type,
-                    transaction_date=tdate,
-                )
+            new_tx = Transaction(
+                account_id=account.id,
+                destination_account_id=(
+                    dest_account.id if dest_account else None
+                ),
+                category_id=cat_id,
+                amount=amount,
+                description=desc,
+                transaction_type=tx_type,
+                transaction_date=tdate,
             )
+            db.add(new_tx)
+
+            if desc and tx_type == TransactionType.EXPENSE:
+                ml_service.learn_from_user(db, current_user.id, desc, cat_id)
+
             db.commit()
             created += 1
         except (ValueError, TypeError) as exc:
@@ -385,6 +422,11 @@ def update_transaction(
             status_code=404, detail="Transaction not found or access denied"
         )
 
+    category_changed = (
+        trans_in.category_id is not None
+        and trans_in.category_id != trans.category_id
+    )
+
     if trans_in.category_id is not None:
         category = (
             db.query(Category)
@@ -422,6 +464,15 @@ def update_transaction(
     update_data = trans_in.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(trans, key, value)
+
+    if (
+        category_changed
+        and trans.description
+        and trans.transaction_type == TransactionType.EXPENSE
+    ):
+        ml_service.learn_from_user(
+            db, current_user.id, trans.description, trans.category_id
+        )
 
     db.commit()
     db.refresh(trans)

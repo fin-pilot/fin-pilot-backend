@@ -185,3 +185,15 @@ class Forecast(Base):
     created_at = Column(DateTime(timezone=True), server_default=functions.now())
 
     user = relationship("User", back_populates="forecasts")
+
+
+class UserTransactionRule(Base):
+    __tablename__ = "user_transaction_rules"
+
+    id = Column(Uuid, primary_key=True, index=True)
+    user_id = Column(Uuid, ForeignKey("users.id"))
+    keyword = Column(String, index=True)
+    category_id = Column(Uuid, ForeignKey("categories.id"))
+
+    user = relationship("User")
+    category = relationship("Category")

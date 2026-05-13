@@ -30,7 +30,8 @@ dependencies = [
     "joblib",
     "datasets",
     "pyyaml",
-    "python-dotenv"
+    "python-dotenv",
+    "pmdarima"
 ]
 
 [project.optional-dependencies]
