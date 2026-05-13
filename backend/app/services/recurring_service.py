@@ -6,6 +6,7 @@ from backend.app.db.models import (
     Transaction,
     RecurringInterval,
     Account,
+    TransactionType,
 )
 
 
@@ -15,7 +16,7 @@ def process_recurring_transactions(db: Session):
     due_subscriptions = (
         db.query(RecurringTransaction)
         .filter(
-            RecurringTransaction.is_active == True,
+            RecurringTransaction.is_active,
             RecurringTransaction.next_date <= today,
         )
         .all()
@@ -28,14 +29,14 @@ def process_recurring_transactions(db: Session):
             category_id=sub.category_id,
             description=f"[Subscription] {sub.description}",
             amount=sub.amount,
-            type=sub.type,
+            type=sub.transaction_type,
             date=today,
         )
         db.add(new_transaction)
 
         account = db.query(Account).filter(Account.id == sub.account_id).first()
         if account:
-            if sub.type == "expense":
+            if sub.transaction_type == TransactionType.EXPENSE:
                 account.balance -= sub.amount
             else:
                 account.balance += sub.amount
