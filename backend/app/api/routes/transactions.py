@@ -101,13 +101,15 @@ def get_transactions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    query = db.query(Transaction).filter(Transaction.user_id == current_user.id)
+    query = db.query(Transaction).filter(
+        Transaction.account.user_id == current_user.id
+    )
 
     if start_date:
-        query = query.filter(Transaction.date >= start_date)
+        query = query.filter(Transaction.transaction_date >= start_date)
 
     if end_date:
-        query = query.filter(Transaction.date <= end_date)
+        query = query.filter(Transaction.transaction_date <= end_date)
 
     if account_id:
         query = query.filter(Transaction.account_id == account_id)
@@ -116,10 +118,10 @@ def get_transactions(
         query = query.filter(Transaction.category_id == category_id)
 
     if transaction_type:
-        query = query.filter(Transaction.type == transaction_type)
+        query = query.filter(Transaction.transaction_date == transaction_type)
 
     transactions = (
-        query.order_by(Transaction.date.desc(), Transaction.created_at.desc())
+        query.order_by(Transaction.transaction_date.desc())
         .offset(skip)
         .limit(limit)
         .all()
@@ -191,6 +193,7 @@ def create_transaction(
 
     if (
         new_transaction.description
+        and new_transaction.category_id is not None
         and new_transaction.transaction_type == TransactionType.EXPENSE
     ):
         ml_service.learn_from_user(
@@ -509,10 +512,14 @@ def update_transaction(
     if (
         category_changed
         and trans.description
+        and trans.category_id is not None
         and trans.transaction_type == TransactionType.EXPENSE
     ):
         ml_service.learn_from_user(
-            db, current_user.id, trans.description, trans.category_id
+            db,
+            current_user.id,
+            trans.description,
+            trans.category_id,
         )
 
     db.commit()
