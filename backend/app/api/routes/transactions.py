@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import datetime
-from typing import List
+from datetime import date, datetime
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import (
@@ -12,6 +12,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Query,
     UploadFile,
     status,
 )
@@ -71,20 +72,54 @@ def _parse_tx_type(raw: str | None) -> TransactionType:
 
 @router.get("/", response_model=List[TransactionResponse])
 def get_transactions(
+    skip: int = Query(0, ge=0, description="Скільки записів пропустити"),
+    limit: int = Query(
+        100, ge=1, le=1000, description="Максимальна кількість записів"
+    ),
+    start_date: Optional[date] = Query(
+        None, description="Початкова дата (формат YYYY-MM-DD)"
+    ),
+    end_date: Optional[date] = Query(
+        None, description="Кінцева дата (формат YYYY-MM-DD)"
+    ),
+    account_id: Optional[UUID] = Query(
+        None, description="Фільтр за ID рахунку"
+    ),
+    category_id: Optional[UUID] = Query(
+        None, description="Фільтр за ID категорії"
+    ),
+    transaction_type: Optional[str] = Query(
+        None,
+        description="Тип транзакції (наприклад: 'expense', 'income', 'transfer')",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    skip: int = 0,
-    limit: int = 100,
 ):
-    return (
-        db.query(Transaction)
-        .join(Account, Transaction.account_id == Account.id)
-        .filter(Account.user_id == current_user.id)
-        .order_by(Transaction.transaction_date.desc())
+    query = db.query(Transaction).filter(Transaction.user_id == current_user.id)
+
+    if start_date:
+        query = query.filter(Transaction.date >= start_date)
+
+    if end_date:
+        query = query.filter(Transaction.date <= end_date)
+
+    if account_id:
+        query = query.filter(Transaction.account_id == account_id)
+
+    if category_id:
+        query = query.filter(Transaction.category_id == category_id)
+
+    if transaction_type:
+        query = query.filter(Transaction.type == transaction_type)
+
+    transactions = (
+        query.order_by(Transaction.date.desc(), Transaction.created_at.desc())
         .offset(skip)
         .limit(limit)
         .all()
     )
+
+    return transactions
 
 
 @router.post(

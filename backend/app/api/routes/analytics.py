@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
-from typing import List, Optional
+import math
+from datetime import date, datetime, time, timedelta, timezone
+from typing import List, Optional, Literal
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -11,29 +12,31 @@ from app.api.dependencies import get_current_user
 from app.db.database import get_db
 from app.db.models import (
     Account,
+    Budget,
     Forecast,
     Transaction,
     TransactionType,
     User,
 )
-from ml.recommender import FinanceRecommender
 from app.schemas.analytics import (
+    AnomalyItem,
+    BudgetUtilization,
+    CashflowData,
+    CategorySpending,
     ForecastResponse,
     GenerateForecastRequest,
-    OverspendingPoint,
     RecommendationsResponse,
     SummaryResponse,
 )
 from app.services.expense_series import daily_expense_dataframe
-from app.services.user_forecaster import train_forecaster_for_history
+from app.services.recommender import FinanceRecommender
+from ml.models.forecaster import ExpenseForecaster
+from shared.config import get_settings
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 
-def _range_filters(
-    start: Optional[date],
-    end: Optional[date],
-):
+def _range_filters(start: Optional[date], end: Optional[date]):
     flt = []
     if start is not None:
         flt.append(
@@ -57,7 +60,7 @@ def get_summary(
 ):
     base = (
         db.query(Transaction)
-        .join(Account, Transaction.account_id == Account.id)
+        .join(Account)
         .filter(Account.user_id == current_user.id)
     )
     for f in _range_filters(start_date, end_date):
@@ -65,31 +68,27 @@ def get_summary(
 
     transactions = base.all()
 
-    income = 0.0
-    expense = 0.0
-    by_cat: dict[str, float] = {}
-    daily_totals_map: dict[str, float] = {}
+    income, expense = 0.0, 0.0
+    by_cat, daily_totals_map = {}, {}
 
     for t in transactions:
-        if t.transaction_type == TransactionType.INCOME:
+        if t.type == TransactionType.INCOME:
             income += t.amount
-        elif t.transaction_type == TransactionType.EXPENSE:
+        elif t.type == TransactionType.EXPENSE:
             expense += t.amount
-
-        if t.transaction_type == TransactionType.EXPENSE and t.category:
-            name = t.category.name
-            by_cat[name] = by_cat.get(name, 0.0) + t.amount
+            if t.category:
+                by_cat[t.category.name] = (
+                    by_cat.get(t.category.name, 0.0) + t.amount
+                )
 
         date_str = t.transaction_date.date().isoformat()
         daily_totals_map.setdefault(date_str, 0.0)
-        if t.transaction_type == TransactionType.INCOME:
-            daily_totals_map[date_str] += t.amount
-        elif t.transaction_type == TransactionType.EXPENSE:
-            daily_totals_map[date_str] -= t.amount
+        daily_totals_map[date_str] += (
+            t.amount if t.type == TransactionType.INCOME else -t.amount
+        )
 
     daily_totals_list = [
-        {"date": d_str, "amount": amt}
-        for d_str, amt in sorted(daily_totals_map.items())
+        {"date": d, "amount": a} for d, a in sorted(daily_totals_map.items())
     ]
 
     return {
@@ -101,6 +100,125 @@ def get_summary(
     }
 
 
+@router.get("/spending-by-category", response_model=List[CategorySpending])
+def get_spending_by_category(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    transaction_type: str = Query("expense"),
+):
+    base = (
+        db.query(Transaction)
+        .join(Account)
+        .filter(
+            Account.user_id == current_user.id,
+            Transaction.type == transaction_type,
+        )
+    )
+    for f in _range_filters(start_date, end_date):
+        base = base.filter(f)
+
+    cat_totals = {}
+    total_amount = 0.0
+
+    for t in base.all():
+        cat_name = t.category.name if t.category else "Інше"
+        cat_totals[cat_name] = cat_totals.get(cat_name, 0.0) + t.amount
+        total_amount += t.amount
+
+    result = [
+        CategorySpending(
+            category_name=name,
+            amount=round(amount, 2),
+            percentage=(
+                round((amount / total_amount * 100), 2)
+                if total_amount > 0
+                else 0.0
+            ),
+        )
+        for name, amount in cat_totals.items()
+    ]
+    result.sort(key=lambda x: x.amount, reverse=True)
+    return result
+
+
+@router.get("/cashflow", response_model=List[CashflowData])
+def get_cashflow(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    interval: Literal["daily", "weekly", "monthly"] = Query("daily"),
+):
+    base = (
+        db.query(Transaction)
+        .join(Account)
+        .filter(Account.user_id == current_user.id)
+    )
+    for f in _range_filters(start_date, end_date):
+        base = base.filter(f)
+
+    transactions = base.all()
+    if not transactions:
+        return []
+
+    data = []
+    for t in transactions:
+        inc = t.amount if t.type == TransactionType.INCOME else 0.0
+        exp = t.amount if t.type == TransactionType.EXPENSE else 0.0
+        data.append({"date": t.transaction_date, "income": inc, "expense": exp})
+
+    df = pd.DataFrame(data)
+    df.set_index("date", inplace=True)
+
+    if interval == "weekly":
+        df = df.resample("W").sum()
+    elif interval == "monthly":
+        df = df.resample("ME").sum()
+    else:
+        df = df.resample("D").sum()
+
+    df = df.fillna(0).reset_index()
+
+    return [
+        CashflowData(
+            date=row["date"].strftime("%Y-%m-%d"),
+            income=round(row["income"], 2),
+            expense=round(row["expense"], 2),
+        )
+        for _, row in df.iterrows()
+    ]
+
+
+@router.get("/budget-utilization", response_model=List[BudgetUtilization])
+def get_budget_utilization(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    budgets = db.query(Budget).filter(Budget.user_id == current_user.id).all()
+    result = []
+
+    for b in budgets:
+        spent = getattr(b, "spent_amount", 0.0)
+        pct = (spent / b.amount * 100) if b.amount > 0 else 0.0
+        status = (
+            "green" if pct < 75.0 else ("yellow" if pct <= 100.0 else "red")
+        )
+
+        result.append(
+            BudgetUtilization(
+                budget_id=b.id,
+                budget_name=b.name,
+                amount_limit=b.amount,
+                spent_amount=spent,
+                percentage=round(pct, 2),
+                status=status,
+            )
+        )
+    return result
+
+
 @router.post("/forecast/generate", status_code=201)
 def generate_forecast(
     req: GenerateForecastRequest,
@@ -108,40 +226,45 @@ def generate_forecast(
     current_user: User = Depends(get_current_user),
 ):
     df = daily_expense_dataframe(db, current_user.id)
-    try:
-        forecaster = train_forecaster_for_history(df)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if len(df) < 14:
+        raise HTTPException(
+            status_code=400, detail="Потрібно хоча б 14 днів історії витрат."
+        )
 
-    result = forecaster.forecast(steps=req.days_to_forecast)
-    last_ts = pd.Timestamp(forecaster.series.index[-1])
-    dates = [
-        last_ts + pd.Timedelta(days=i + 1) for i in range(req.days_to_forecast)
-    ]
+    try:
+        settings = get_settings()
+        forecaster = ExpenseForecaster(settings.ml)
+
+        forecaster.load_model()
+
+        forecaster.update(df)
+
+        predictions = forecaster.predict(steps=req.days_to_forecast)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Помилка моделі: {str(exc)}"
+        ) from exc
 
     db.query(Forecast).filter(Forecast.user_id == current_user.id).delete()
+    dates = [
+        date.today() + timedelta(days=i + 1)
+        for i in range(req.days_to_forecast)
+    ]
 
-    n = min(len(dates), len(result.predictions))
-    for i in range(n):
-        dt = dates[i]
-        amt = result.predictions[i]
-        val = max(0.0, float(amt))
-        ts = pd.Timestamp(dt).to_pydatetime()
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        row = Forecast(
-            user_id=current_user.id,
-            target_date=ts,
-            predicted_amount=val,
-            model_type="SARIMA",
+    for i, amt in enumerate(predictions):
+        ts = datetime.combine(dates[i], time.min, tzinfo=timezone.utc)
+        db.add(
+            Forecast(
+                user_id=current_user.id,
+                target_date=ts,
+                predicted_amount=max(0.0, float(amt)),
+                model_type="SARIMA",
+            )
         )
-        db.add(row)
 
     db.commit()
     return {
-        "message": (
-            f"Forecast for {req.days_to_forecast} days generated successfully."
-        )
+        "message": f"Forecast for {req.days_to_forecast} days generated successfully."
     }
 
 
@@ -159,69 +282,84 @@ def list_forecast(
     return [ForecastResponse.from_forecast_row(r) for r in rows]
 
 
+@router.get("/anomalies", response_model=List[AnomalyItem])
+def get_anomalies(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    window_days: int = Query(30, ge=7, le=365),
+):
+    start_date = date.today() - timedelta(days=window_days)
+    transactions = (
+        db.query(Transaction)
+        .join(Account)
+        .filter(
+            Account.user_id == current_user.id,
+            Transaction.type == TransactionType.EXPENSE,
+            Transaction.transaction_date
+            >= datetime.combine(start_date, time.min, tzinfo=timezone.utc),
+        )
+        .all()
+    )
+
+    if len(transactions) < 5:
+        return []
+
+    amounts = [t.amount for t in transactions]
+    mean_amt = sum(amounts) / len(amounts)
+    std_dev = math.sqrt(
+        sum((x - mean_amt) ** 2 for x in amounts) / len(amounts)
+    )
+
+    anomalies = []
+    for t in transactions:
+        if std_dev < 1:
+            continue
+        if t.amount > mean_amt + (3 * std_dev):
+            lvl = "high"
+        elif t.amount > mean_amt + (2 * std_dev):
+            lvl = "medium"
+        else:
+            continue
+
+        anomalies.append(
+            AnomalyItem(
+                transaction_id=t.id,
+                date=t.transaction_date.date().isoformat(),
+                description=t.description or "Невідома",
+                amount=round(t.amount, 2),
+                anomaly_level=lvl,
+            )
+        )
+    anomalies.sort(key=lambda x: x.amount, reverse=True)
+    return anomalies
+
+
 @router.get("/recommendations", response_model=RecommendationsResponse)
 def get_recommendations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    start_date: Optional[date] = Query(None),
-    end_date: Optional[date] = Query(None),
 ):
-    base = (
+    rec_engine = FinanceRecommender()
+
+    start_date = date.today() - timedelta(days=30)
+    txs = (
         db.query(Transaction)
-        .join(Account, Transaction.account_id == Account.id)
-        .filter(Account.user_id == current_user.id)
+        .join(Account)
+        .filter(
+            Account.user_id == current_user.id,
+            Transaction.transaction_date
+            >= datetime.combine(start_date, time.min, tzinfo=timezone.utc),
+        )
+        .all()
     )
-    for f in _range_filters(start_date, end_date):
-        base = base.filter(f)
 
-    income = 0.0
-    expenses_by_category: dict[str, float] = {}
-
-    for t in base.all():
-        if t.transaction_type == TransactionType.INCOME:
-            income += t.amount
-        elif t.transaction_type == TransactionType.EXPENSE and t.category:
-            name = t.category.name
-            expenses_by_category[name] = (
-                expenses_by_category.get(name, 0.0) + t.amount
+    inc = sum(t.amount for t in txs if t.type == TransactionType.INCOME)
+    exp_by_cat = {}
+    for t in txs:
+        if t.type == TransactionType.EXPENSE and t.category:
+            exp_by_cat[t.category.name] = (
+                exp_by_cat.get(t.category.name, 0.0) + t.amount
             )
 
-    rec = FinanceRecommender()
-    tips = rec.analyze_spending(income, expenses_by_category)
+    tips = rec_engine.analyze_spending(inc, exp_by_cat)
     return {"recommendations": tips}
-
-
-@router.get("/overspending", response_model=List[OverspendingPoint])
-def get_overspending(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    window: int = Query(30, ge=3, le=365),
-    threshold: float = Query(2.0, ge=0.5, le=10.0),
-):
-    df = daily_expense_dataframe(db, current_user.id)
-    if len(df) < 7:
-        raise HTTPException(
-            status_code=400,
-            detail="Need at least 7 days of expense history.",
-        )
-    try:
-        forecaster = train_forecaster_for_history(df)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    anomalies = forecaster.detect_overspending(
-        df,
-        date_col="date",
-        amount_col="amount",
-        window=window,
-        threshold=threshold,
-    )
-    out: List[OverspendingPoint] = []
-    for idx, val in anomalies.items():
-        out.append(
-            OverspendingPoint(
-                date=pd.Timestamp(idx).date().isoformat(),
-                amount=float(val),
-            )
-        )
-    return out

@@ -1,7 +1,10 @@
+from datetime import date
 import enum
 import uuid
 from sqlalchemy import (
+    Boolean,
     Column,
+    Date,
     String,
     Float,
     DateTime,
@@ -197,3 +200,61 @@ class UserTransactionRule(Base):
 
     user = relationship("User")
     category = relationship("Category")
+
+
+class Goal(Base):
+    __tablename__ = "goals"
+
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        Uuid(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name = Column(String, nullable=False)
+    target_amount = Column(Float, nullable=False)
+    current_amount = Column(Float, default=0.0, nullable=False)
+    deadline = Column(Date, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=functions.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=functions.now())
+
+    user = relationship("User", backref="goals")
+
+
+class RecurringInterval(str, enum.Enum):
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    YEARLY = "yearly"
+
+
+class RecurringTransaction(Base):
+    __tablename__ = "recurring_transactions"
+
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        Uuid(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    account_id = Column(
+        Uuid(as_uuid=True),
+        ForeignKey("accounts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    category_id = Column(
+        Uuid(as_uuid=True),
+        ForeignKey("categories.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    description = Column(String, nullable=False)
+    amount = Column(Float, nullable=False)
+    type = Column(String, default="expense")
+
+    interval = Column(Enum(RecurringInterval), nullable=False)
+    start_date = Column(Date, default=date.today)
+    next_date = Column(Date, nullable=False)
+    is_active = Column(Boolean, default=True)
+
+    user = relationship("User", backref="recurring")
