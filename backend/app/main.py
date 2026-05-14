@@ -29,7 +29,7 @@ from ml.utils.model_loader import (
 setup_logging()
 
 
-def run_recurring_engine():
+def run_recurring_engine() -> None:
     db = SESSION_LOCAL()
     try:
         process_recurring_transactions(db)
@@ -38,7 +38,7 @@ def run_recurring_engine():
 
 
 @repeat_every(seconds=60 * 60 * 24)
-async def recurring_task():
+async def recurring_task() -> None:
     run_recurring_engine()
 
 

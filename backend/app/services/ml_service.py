@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class MLService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.categorizer = TransactionCategorizer(ml_settings)
 
         self.forecaster = ExpenseForecaster(ml_settings)
@@ -28,11 +28,11 @@ class MLService:
         self._is_categorizer_loaded = False
         self._is_forecaster_loaded = False
 
-    def load_model(self):
+    def load_model(self) -> None:
         self.load_categorizer_model()
         self.load_forecaster_model()
 
-    def load_categorizer_model(self):
+    def load_categorizer_model(self) -> None:
         try:
             self.categorizer.load_model()
 
@@ -59,7 +59,7 @@ class MLService:
                 error,
             )
 
-    def load_forecaster_model(self):
+    def load_forecaster_model(self) -> None:
         try:
             self.forecaster.load_model()
 

@@ -8,9 +8,10 @@ from backend.app.db.models import (
     Account,
     TransactionType,
 )
+import sqlalchemy.orm.session
 
 
-def process_recurring_transactions(db: Session):
+def process_recurring_transactions(db: Session) -> int:
     today = date.today()
 
     due_subscriptions = (

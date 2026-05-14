@@ -1,11 +1,16 @@
-from .backend import (
+from shared.config.backend import (
     BackendSettings,
     backend_settings,
-    get_backend_settings,
 )
 
-from .ml import (
+from shared.config.ml import (
     MLSettings,
     ml_settings,
-    get_ml_settings,
 )
+
+__all__ = [
+    "BackendSettings",
+    "backend_settings",
+    "MLSettings",
+    "ml_settings",
+]

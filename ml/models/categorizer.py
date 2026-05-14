@@ -8,13 +8,15 @@ from sklearn.svm import LinearSVC
 
 from shared.config import MLSettings
 from shared.logging.config import setup_logging
+import shared.config.ml
+import sklearn.svm._classes
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 
 class TransactionCategorizer:
-    def __init__(self, config: MLSettings):
+    def __init__(self, config: MLSettings) -> None:
         self.config = config
 
         logger.info("Initializing transaction categorizer.")

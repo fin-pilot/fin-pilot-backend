@@ -43,6 +43,3 @@ dev = ["black", "pylint"]
 [tool.black]
 line-length = 80
 skip-string-normalization = false
-
-[tool.setuptools.packages.find]
-include = ["app", "app.*"]

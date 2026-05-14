@@ -9,13 +9,14 @@ from numpy.linalg import LinAlgError
 
 from shared.config import MLSettings
 from shared.logging.config import setup_logging
+import shared.config.ml
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 
 class ExpenseForecaster:
-    def __init__(self, config: MLSettings):
+    def __init__(self, config: MLSettings) -> None:
         self.config = config
 
         self.sarima_cfg = config.forecaster.sarima
