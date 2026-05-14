@@ -13,7 +13,7 @@ data:
 
 categorizer:
   model:
-    path: ml/artifacts/categorizer/transaction_classifier.pkl
+    path: ml/artifacts/categorizer.pkl
 
     release_url: "https://github.com/PalamarchukOleksii/personal-finance-management-system/releases/download/v0.0.1/transaction_classifier.pkl"
 
@@ -31,7 +31,7 @@ categorizer:
 
 forecaster:
   model:
-    path: ml/artifacts/forecaster/sarima_model.pkl
+    path: ml/artifacts/forecaster.pkl
 
     release_url: "https://github.com/PalamarchukOleksii/personal-finance-management-system/releases/download/v0.0.1/sarima_model.pkl"
 
@@ -49,8 +49,8 @@ forecaster:
 
     information_criterion: aic
 
-    max_p: 3
-    max_q: 3
+    max_p: 5
+    max_q: 5
     max_d: 2
 
     max_P: 2
