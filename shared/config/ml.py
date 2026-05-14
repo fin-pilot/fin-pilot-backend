@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 from pydantic import BaseModel
@@ -85,6 +85,10 @@ class SARIMAConfig(BaseModel):
     max_Q: int = 2
 
     max_D: int = 1
+
+    n_jobs: int = 1
+
+    max_order: Optional[int] = None
 
 
 class CategorizerConfig(BaseModel):

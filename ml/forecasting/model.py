@@ -72,6 +72,7 @@ class TransactionForecaster:
                 max_P=self.sarima_config.max_P,
                 max_Q=self.sarima_config.max_Q,
                 max_D=self.sarima_config.max_D,
+                max_order=self.sarima_config.max_order,
                 stepwise=self.sarima_config.stepwise,
                 trace=self.sarima_config.trace,
                 error_action=self.sarima_config.error_action,
@@ -81,6 +82,7 @@ class TransactionForecaster:
                 ),
                 with_intercept="auto",
                 stationary=False,
+                n_jobs=self.sarima_config.n_jobs,
             )
 
         except ValueError as error:
@@ -99,12 +101,14 @@ class TransactionForecaster:
                 max_p=self.sarima_config.max_p,
                 max_q=self.sarima_config.max_q,
                 max_d=self.sarima_config.max_d,
-                stepwise=True,
+                max_order=self.sarima_config.max_order,
+                stepwise=self.sarima_config.stepwise,
                 trace=self.sarima_config.trace,
-                error_action="ignore",
-                suppress_warnings=True,
+                error_action=self.sarima_config.error_action,
+                suppress_warnings=self.sarima_config.suppress_warnings,
                 with_intercept="auto",
                 stationary=False,
+                n_jobs=self.sarima_config.n_jobs,
             )
 
         if self.model is None:
