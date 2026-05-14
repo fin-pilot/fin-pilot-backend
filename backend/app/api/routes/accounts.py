@@ -1,16 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
 import uuid
 
 from backend.app.db.database import get_db
-from backend.app.db.models import Account, User
+from backend.app.db.models import User
 from backend.app.schemas.account import (
     AccountCreate,
     AccountResponse,
     AccountUpdate,
 )
 from backend.app.api.dependencies import get_current_user
+from backend.app.services.account_service import AccountService
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 
@@ -20,7 +21,8 @@ def get_accounts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return db.query(Account).filter(Account.user_id == current_user.id).all()
+    service = AccountService(db)
+    return service.list_accounts(current_user.id)
 
 
 @router.post(
@@ -31,17 +33,8 @@ def create_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    new_account = Account(
-        name=account_in.name,
-        account_type=account_in.account_type,
-        balance=account_in.balance,
-        currency=account_in.currency,
-        user_id=current_user.id,
-    )
-    db.add(new_account)
-    db.commit()
-    db.refresh(new_account)
-    return new_account
+    service = AccountService(db)
+    return service.create_account(current_user.id, account_in)
 
 
 @router.get("/{account_id}", response_model=AccountResponse)
@@ -50,14 +43,8 @@ def get_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    account = (
-        db.query(Account)
-        .filter(Account.id == account_id, Account.user_id == current_user.id)
-        .first()
-    )
-    if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
-    return account
+    service = AccountService(db)
+    return service.get_account(current_user.id, account_id)
 
 
 @router.put("/{account_id}", response_model=AccountResponse)
@@ -67,21 +54,8 @@ def update_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    account = (
-        db.query(Account)
-        .filter(Account.id == account_id, Account.user_id == current_user.id)
-        .first()
-    )
-    if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
-
-    update_data = account_in.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(account, key, value)
-
-    db.commit()
-    db.refresh(account)
-    return account
+    service = AccountService(db)
+    return service.update_account(current_user.id, account_id, account_in)
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -90,14 +64,6 @@ def delete_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    account = (
-        db.query(Account)
-        .filter(Account.id == account_id, Account.user_id == current_user.id)
-        .first()
-    )
-    if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
-
-    db.delete(account)
-    db.commit()
+    service = AccountService(db)
+    service.delete_account(current_user.id, account_id)
     return None

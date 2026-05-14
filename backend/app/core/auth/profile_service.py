@@ -1,0 +1,36 @@
+"""User profile management service."""
+
+from sqlalchemy.orm import Session
+
+from backend.app.repositories.user_repository import UserRepository
+from backend.app.schemas.user import UserResponse, UserUpdate
+
+
+class UserProfileService:
+    """Service for user profile management."""
+
+    def __init__(self, db: Session) -> None:
+        self._db = db
+        self._user_repo = UserRepository(db)
+
+    def update_profile(self, user_id, update_data: UserUpdate) -> UserResponse:
+        """Update user profile information.
+
+        Updates full_name and/or email if provided.
+        """
+        user = self._user_repo.get_by_id(user_id)
+        if not user:
+            from backend.app.core.exceptions import NotFoundError
+
+            raise NotFoundError("User not found")
+
+        if update_data.full_name:
+            user.full_name = update_data.full_name
+        if update_data.email:
+            user.email = update_data.email
+
+        with self._db.begin():
+            self._db.add(user)
+
+        self._db.refresh(user)
+        return UserResponse.from_orm(user)

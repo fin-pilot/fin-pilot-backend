@@ -1,20 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
-from datetime import date
 
 from backend.app.db.database import get_db
-from backend.app.db.models import RecurringTransaction, User
+from backend.app.db.models import User
 from backend.app.schemas.recurring import (
     RecurringCreate,
     RecurringResponse,
     RecurringUpdate,
 )
 from backend.app.api.dependencies import get_current_user
-from backend.app.services.recurring_service import (
-    process_recurring_transactions,
-)
+from backend.app.services.recurring_service import RecurringService
 
 router = APIRouter(prefix="/api/recurring", tags=["recurring"])
 
@@ -24,11 +21,8 @@ def get_recurring_transactions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return (
-        db.query(RecurringTransaction)
-        .filter(RecurringTransaction.user_id == current_user.id)
-        .all()
-    )
+    service = RecurringService(db)
+    return service.list_recurring(current_user.id)
 
 
 @router.post(
@@ -39,16 +33,8 @@ def create_recurring_transaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    next_run = sub_in.start_date or date.today()
-
-    new_sub = RecurringTransaction(
-        **sub_in.model_dump(), user_id=current_user.id, next_date=next_run
-    )
-
-    db.add(new_sub)
-    db.commit()
-    db.refresh(new_sub)
-    return new_sub
+    service = RecurringService(db)
+    return service.create_recurring(current_user.id, sub_in)
 
 
 @router.get("/{recurring_id}", response_model=RecurringResponse)
@@ -57,21 +43,8 @@ def get_recurring_transaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    sub = (
-        db.query(RecurringTransaction)
-        .filter(
-            RecurringTransaction.id == recurring_id,
-            RecurringTransaction.user_id == current_user.id,
-        )
-        .first()
-    )
-
-    if not sub:
-        raise HTTPException(
-            status_code=404, detail="Регулярний платіж не знайдено"
-        )
-
-    return sub
+    service = RecurringService(db)
+    return service.get_recurring(current_user.id, recurring_id)
 
 
 @router.put("/{recurring_id}", response_model=RecurringResponse)
@@ -81,27 +54,8 @@ def update_recurring_transaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    sub = (
-        db.query(RecurringTransaction)
-        .filter(
-            RecurringTransaction.id == recurring_id,
-            RecurringTransaction.user_id == current_user.id,
-        )
-        .first()
-    )
-
-    if not sub:
-        raise HTTPException(
-            status_code=404, detail="Регулярний платіж не знайдено"
-        )
-
-    update_data = sub_in.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(sub, key, value)
-
-    db.commit()
-    db.refresh(sub)
-    return sub
+    service = RecurringService(db)
+    return service.update_recurring(current_user.id, recurring_id, sub_in)
 
 
 @router.delete("/{recurring_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -110,22 +64,8 @@ def delete_recurring_transaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    sub = (
-        db.query(RecurringTransaction)
-        .filter(
-            RecurringTransaction.id == recurring_id,
-            RecurringTransaction.user_id == current_user.id,
-        )
-        .first()
-    )
-
-    if not sub:
-        raise HTTPException(
-            status_code=404, detail="Регулярний платіж не знайдено"
-        )
-
-    db.delete(sub)
-    db.commit()
+    service = RecurringService(db)
+    service.delete_recurring(current_user.id, recurring_id)
     return None
 
 
@@ -134,6 +74,8 @@ def trigger_processing(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    count = process_recurring_transactions(db)
+    service = RecurringService(db)
+    _ = current_user
+    count = service.process_due()
 
     return {"message": "Обробку завершено успішно", "processed_count": count}

@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import date
 from uuid import UUID
-from backend.app.db.models import RecurringInterval
+from backend.app.db.models import RecurringInterval, TransactionType
 
 
 class RecurringBase(BaseModel):
@@ -10,7 +10,7 @@ class RecurringBase(BaseModel):
     amount: float = Field(..., gt=0)
     account_id: UUID
     category_id: Optional[UUID] = None
-    type: str = "expense"
+    type: TransactionType = TransactionType.EXPENSE
     interval: RecurringInterval
     start_date: Optional[date] = None
 

@@ -9,6 +9,7 @@ from backend.app.services.recurring_service import (
     process_recurring_transactions,
 )
 from backend.app.services.ml_service import ml_service
+from backend.app.api.exception_handlers import register_exception_handlers
 from backend.app.api.routes import (
     auth,
     users,
@@ -67,6 +68,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+register_exception_handlers(app)
 
 app.include_router(auth.router)
 app.include_router(users.router)

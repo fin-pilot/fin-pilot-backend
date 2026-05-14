@@ -1,73 +1,23 @@
-from datetime import datetime, timedelta, timezone
-from uuid import UUID
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
-from jose import jwt, JWTError
-from pwdlib import PasswordHash
-from pwdlib.hashers.bcrypt import BcryptHasher
 from sqlalchemy.orm import Session
 
-from shared.config import backend_settings
 from backend.app.db.database import get_db
-from backend.app.db.models import User
 from backend.app.schemas.user import (
     RefreshTokenRequest,
     Token,
     UserCreate,
     UserResponse,
 )
+from backend.app.core.auth.service import AuthService
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-pwd_context = PasswordHash((BcryptHasher(),))
-
-
-def _create_access_token(user_id: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=backend_settings.ACCESS_TOKEN_EXPIRE_MINUTES
-    )
-    return jwt.encode(
-        {
-            "sub": user_id,
-            "exp": int(expire.timestamp()),
-            "token_use": "access",
-        },
-        backend_settings.SECRET_KEY,
-        algorithm=backend_settings.ALGORITHM,
-    )
-
-
-def _create_refresh_token(user_id: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(
-        days=backend_settings.REFRESH_TOKEN_EXPIRE_DAYS
-    )
-    return jwt.encode(
-        {
-            "sub": user_id,
-            "exp": int(expire.timestamp()),
-            "token_use": "refresh",
-        },
-        backend_settings.SECRET_KEY,
-        algorithm=backend_settings.ALGORITHM,
-    )
 
 
 @router.post("/register", response_model=UserResponse)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == user_in.email).first()
-    if user:
-        raise HTTPException(status_code=400, detail="User already exists")
-
-    hashed_password = pwd_context.hash(user_in.password)
-    new_user = User(
-        email=user_in.email,
-        full_name=user_in.full_name,
-        hashed_password=hashed_password,
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
+    service = AuthService(db)
+    return service.register(user_in)
 
 
 @router.post("/login", response_model=Token)
@@ -75,57 +25,39 @@ def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    user = db.query(User).filter(User.email == form_data.username).first()
+    from backend.app.core.exceptions import ValidationError
 
-    if not user or not pwd_context.verify(
-        form_data.password, user.hashed_password
-    ):
-        raise HTTPException(
-            status_code=401, detail="Incorrect email or password"
+    service = AuthService(db)
+    try:
+        access_token, refresh_tok = service.authenticate_user(
+            form_data.username, form_data.password
         )
+    except ValueError as exc:
+        raise ValidationError("Incorrect email or password") from exc
 
-    uid = str(user.id)
     return {
-        "access_token": _create_access_token(uid),
-        "refresh_token": _create_refresh_token(uid),
+        "access_token": access_token,
+        "refresh_token": refresh_tok,
         "token_type": "bearer",
     }
 
 
 @router.post("/refresh", response_model=Token)
-def refresh_token(body: RefreshTokenRequest, db: Session = Depends(get_db)):
+def refresh_access_token(
+    body: RefreshTokenRequest, db: Session = Depends(get_db)
+):
+    from backend.app.core.exceptions import ValidationError
+
+    service = AuthService(db)
     try:
-        payload = jwt.decode(
-            body.refresh_token,
-            backend_settings.SECRET_KEY,
-            algorithms=[backend_settings.ALGORITHM],
+        access_token, refresh_tok = service.refresh_access_token(
+            body.refresh_token
         )
-    except JWTError as exc:
-        raise HTTPException(
-            status_code=401, detail="Invalid refresh token"
-        ) from exc
+    except (ValueError, Exception) as exc:
+        raise ValidationError("Invalid refresh token") from exc
 
-    if payload.get("token_use") != "refresh":
-        raise HTTPException(status_code=401, detail="Invalid token type")
-
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
-
-    try:
-        uid_key = UUID(str(user_id))
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=401, detail="Invalid refresh token"
-        ) from exc
-
-    user = db.query(User).filter(User.id == uid_key).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-
-    uid = str(user.id)
     return {
-        "access_token": _create_access_token(uid),
-        "refresh_token": _create_refresh_token(uid),
+        "access_token": access_token,
+        "refresh_token": refresh_tok,
         "token_type": "bearer",
     }

@@ -12,6 +12,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Numeric,
     String,
     UniqueConstraint,
 )
@@ -138,7 +139,7 @@ class Account(Base):
     )
 
     balance: Mapped[float] = mapped_column(
-        Float,
+        Numeric(precision=12, scale=2),
         default=0.0,
         nullable=False,
     )
@@ -202,6 +203,14 @@ class Category(Base):
         index=True,
     )
 
+    @property
+    def type(self) -> TransactionType:
+        return self.transaction_type
+
+    @type.setter
+    def type(self, value: TransactionType) -> None:
+        self.transaction_type = value
+
     owner: Mapped[Optional["User"]] = relationship(
         back_populates="categories",
     )
@@ -251,7 +260,7 @@ class Transaction(Base):
     )
 
     amount: Mapped[float] = mapped_column(
-        Float,
+        Numeric(precision=12, scale=2),
         nullable=False,
     )
 
@@ -319,7 +328,7 @@ class Budget(Base):
     )
 
     limit_amount: Mapped[float] = mapped_column(
-        Float,
+        Numeric(precision=12, scale=2),
         nullable=False,
     )
 
@@ -365,7 +374,7 @@ class Forecast(Base):
     )
 
     predicted_amount: Mapped[float] = mapped_column(
-        Float,
+        Numeric(precision=12, scale=2),
         nullable=False,
     )
 
@@ -455,12 +464,12 @@ class Goal(Base):
     )
 
     target_amount: Mapped[float] = mapped_column(
-        Float,
+        Numeric(precision=12, scale=2),
         nullable=False,
     )
 
     current_amount: Mapped[float] = mapped_column(
-        Float,
+        Numeric(precision=12, scale=2),
         default=0.0,
         nullable=False,
     )
@@ -523,7 +532,7 @@ class RecurringTransaction(Base):
     )
 
     amount: Mapped[float] = mapped_column(
-        Float,
+        Numeric(precision=12, scale=2),
         nullable=False,
     )
 
@@ -532,6 +541,14 @@ class RecurringTransaction(Base):
         default=TransactionType.EXPENSE,
         nullable=False,
     )
+
+    @property
+    def type(self) -> TransactionType:
+        return self.transaction_type
+
+    @type.setter
+    def type(self, value: TransactionType) -> None:
+        self.transaction_type = value
 
     interval: Mapped[RecurringInterval] = mapped_column(
         Enum(RecurringInterval),

@@ -58,31 +58,37 @@ class TransactionForecaster:
             seasonal_period = 0
 
         try:
-            self.model = pm.auto_arima(
-                prepared_series,
-                seasonal=seasonal_enabled,
-                m=seasonal_period if seasonal_enabled else 1,
-                start_p=0,
-                start_q=0,
-                max_p=self.sarima_config.max_p,
-                max_q=self.sarima_config.max_q,
-                max_d=self.sarima_config.max_d,
-                start_P=0,
-                start_Q=0,
-                max_P=self.sarima_config.max_P,
-                max_Q=self.sarima_config.max_Q,
-                max_D=self.sarima_config.max_D,
-                max_order=self.sarima_config.max_order,
-                stepwise=self.sarima_config.stepwise,
-                trace=self.sarima_config.trace,
-                error_action=self.sarima_config.error_action,
-                suppress_warnings=self.sarima_config.suppress_warnings,
-                information_criterion=(
+            auto_arima_kwargs = {
+                "seasonal": seasonal_enabled,
+                "m": seasonal_period if seasonal_enabled else 1,
+                "start_p": 0,
+                "start_q": 0,
+                "max_p": self.sarima_config.max_p,
+                "max_q": self.sarima_config.max_q,
+                "max_d": self.sarima_config.max_d,
+                "start_P": 0,
+                "start_Q": 0,
+                "max_P": self.sarima_config.max_P,
+                "max_Q": self.sarima_config.max_Q,
+                "max_D": self.sarima_config.max_D,
+                "stepwise": self.sarima_config.stepwise,
+                "trace": self.sarima_config.trace,
+                "error_action": self.sarima_config.error_action,
+                "suppress_warnings": self.sarima_config.suppress_warnings,
+                "information_criterion": (
                     self.sarima_config.information_criterion
                 ),
-                with_intercept="auto",
-                stationary=False,
-                n_jobs=self.sarima_config.n_jobs,
+                "with_intercept": "auto",
+                "stationary": False,
+                "n_jobs": self.sarima_config.n_jobs,
+            }
+
+            if self.sarima_config.max_order is not None:
+                auto_arima_kwargs["max_order"] = self.sarima_config.max_order
+
+            self.model = pm.auto_arima(
+                prepared_series,
+                **auto_arima_kwargs,
             )
 
         except ValueError as error:
@@ -92,23 +98,29 @@ class TransactionForecaster:
                 error,
             )
 
+            fallback_kwargs = {
+                "seasonal": False,
+                "m": 1,
+                "start_p": 0,
+                "start_q": 0,
+                "max_p": self.sarima_config.max_p,
+                "max_q": self.sarima_config.max_q,
+                "max_d": self.sarima_config.max_d,
+                "stepwise": self.sarima_config.stepwise,
+                "trace": self.sarima_config.trace,
+                "error_action": self.sarima_config.error_action,
+                "suppress_warnings": self.sarima_config.suppress_warnings,
+                "with_intercept": "auto",
+                "stationary": False,
+                "n_jobs": self.sarima_config.n_jobs,
+            }
+
+            if self.sarima_config.max_order is not None:
+                fallback_kwargs["max_order"] = self.sarima_config.max_order
+
             self.model = pm.auto_arima(
                 prepared_series,
-                seasonal=False,
-                m=1,
-                start_p=0,
-                start_q=0,
-                max_p=self.sarima_config.max_p,
-                max_q=self.sarima_config.max_q,
-                max_d=self.sarima_config.max_d,
-                max_order=self.sarima_config.max_order,
-                stepwise=self.sarima_config.stepwise,
-                trace=self.sarima_config.trace,
-                error_action=self.sarima_config.error_action,
-                suppress_warnings=self.sarima_config.suppress_warnings,
-                with_intercept="auto",
-                stationary=False,
-                n_jobs=self.sarima_config.n_jobs,
+                **fallback_kwargs,
             )
 
         if self.model is None:

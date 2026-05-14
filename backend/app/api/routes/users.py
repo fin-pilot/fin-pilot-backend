@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from backend.app.db.database import get_db
+
 from backend.app.api.dependencies import get_current_user
+from backend.app.db.database import get_db
 from backend.app.schemas.user import UserResponse, UserUpdate
+from backend.app.core.auth.profile_service import UserProfileService
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -18,11 +20,5 @@ def update_me(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    if user_in.full_name:
-        current_user.full_name = user_in.full_name
-    if user_in.email:
-        current_user.email = user_in.email
-
-    db.commit()
-    db.refresh(current_user)
-    return current_user
+    service = UserProfileService(db)
+    return service.update_profile(current_user.id, user_in)

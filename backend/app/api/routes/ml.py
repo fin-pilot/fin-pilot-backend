@@ -1,17 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from backend.app.db.database import get_db
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
 from backend.app.api.dependencies import get_current_user
-from backend.app.db.models import User, Category, TransactionType
-from backend.app.services.ml_service import ml_service
+from backend.app.core.exceptions import ValidationError
+from backend.app.db.database import get_db
+from backend.app.db.models import Category, TransactionType, User
 from backend.app.schemas.ml import (
+    ForecastPoint,
     PredictCategoryRequest,
     PredictCategoryResponse,
     PredictForecastResponse,
     SeasonalityResponse,
-    ForecastPoint,
 )
+from backend.app.services.ml_service import ml_service
 
 router = APIRouter(prefix="/api/ml", tags=["machine-learning"])
 
@@ -59,16 +62,14 @@ async def train_forecaster(
     try:
         success = await ml_service.train_user_forecaster(db, current_user.id)
         if not success:
-            raise HTTPException(
-                status_code=400, detail="Недостатньо даних для навчання моделі"
-            )
+            raise ValidationError("Недостатньо даних для навчання моделі")
         return {
             "message": "Процес навчання моделі успішно запущено або оновлено"
         }
+    except ValidationError:
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Помилка при навчанні: {str(e)}"
-        ) from e
+        raise ValidationError(f"Помилка при навчанні: {str(e)}") from e
 
 
 @router.get(
@@ -94,9 +95,7 @@ async def predict_expenses(
     if not raw_predictions:
         return PredictForecastResponse(
             predictions=[],
-            message=(
-                "Модель ще не навчена або " "недостатньо даних для прогнозу"
-            ),
+            message=("Модель ще не навчена або недостатньо даних для прогнозу"),
         )
 
     today = datetime.utcnow().date()
@@ -122,9 +121,7 @@ async def get_seasonality_patterns(
     patterns = ml_service.get_user_seasonality(current_user.id)
 
     if not patterns:
-        raise HTTPException(
-            status_code=404, detail="Сезонні патерни ще не визначені"
-        )
+        raise ValidationError("Сезонні патерни ще не визначені")
 
     return SeasonalityResponse(
         user_id=current_user.id,

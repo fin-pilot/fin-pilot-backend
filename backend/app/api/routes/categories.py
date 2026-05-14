@@ -1,17 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
-from sqlalchemy import Null, or_
 from typing import List
 import uuid
 
 from backend.app.db.database import get_db
-from backend.app.db.models import Category, User
+from backend.app.db.models import User
 from backend.app.schemas.category import (
     CategoryCreate,
     CategoryResponse,
     CategoryUpdate,
 )
 from backend.app.api.dependencies import get_current_user
+from backend.app.services.category_service import CategoryService
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 
@@ -21,13 +21,8 @@ def get_categories(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return (
-        db.query(Category)
-        .filter(
-            or_(Category.user_id == current_user.id, Category.user_id.is_(None))
-        )
-        .all()
-    )
+    service = CategoryService(db)
+    return service.list_categories(current_user.id)
 
 
 @router.post(
@@ -38,11 +33,8 @@ def create_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    new_category = Category(**category_in.model_dump(), user_id=current_user.id)
-    db.add(new_category)
-    db.commit()
-    db.refresh(new_category)
-    return new_category
+    service = CategoryService(db)
+    return service.create_category(current_user.id, category_in)
 
 
 @router.put("/{category_id}", response_model=CategoryResponse)
@@ -52,24 +44,8 @@ def update_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    category = (
-        db.query(Category)
-        .filter(Category.id == category_id, Category.user_id == current_user.id)
-        .first()
-    )
-
-    if not category:
-        raise HTTPException(
-            status_code=404, detail="Category not found or access denied"
-        )
-
-    update_data = category_in.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(category, key, value)
-
-    db.commit()
-    db.refresh(category)
-    return category
+    service = CategoryService(db)
+    return service.update_category(current_user.id, category_id, category_in)
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -78,17 +54,6 @@ def delete_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    category = (
-        db.query(Category)
-        .filter(Category.id == category_id, Category.user_id == current_user.id)
-        .first()
-    )
-
-    if not category:
-        raise HTTPException(
-            status_code=404, detail="Category not found or access denied"
-        )
-
-    db.delete(category)
-    db.commit()
+    service = CategoryService(db)
+    service.delete_category(current_user.id, category_id)
     return None

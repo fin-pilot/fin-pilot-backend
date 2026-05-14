@@ -11,10 +11,11 @@ class BudgetBase(BaseModel):
 
 
 class BudgetCreate(BudgetBase):
-    pass
+    name: Optional[str] = None
 
 
 class BudgetUpdate(BaseModel):
+    name: Optional[str] = None
     limit_amount: Optional[float] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None

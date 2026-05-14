@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 
 from backend.app.db.database import get_db
-from backend.app.db.models import Goal, User
+from backend.app.db.models import User
 from backend.app.schemas.goal import (
     GoalCreate,
     GoalResponse,
@@ -12,6 +12,7 @@ from backend.app.schemas.goal import (
     GoalContribute,
 )
 from backend.app.api.dependencies import get_current_user
+from backend.app.services.goal_service import GoalService
 
 router = APIRouter(prefix="/api/goals", tags=["goals"])
 
@@ -21,7 +22,8 @@ def get_goals(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return db.query(Goal).filter(Goal.user_id == current_user.id).all()
+    service = GoalService(db)
+    return service.list_goals(current_user.id)
 
 
 @router.post(
@@ -32,17 +34,8 @@ def create_goal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    new_goal = Goal(
-        user_id=current_user.id,
-        name=goal_in.name,
-        target_amount=goal_in.target_amount,
-        current_amount=goal_in.current_amount,
-        deadline=goal_in.deadline,
-    )
-    db.add(new_goal)
-    db.commit()
-    db.refresh(new_goal)
-    return new_goal
+    service = GoalService(db)
+    return service.create_goal(current_user.id, goal_in)
 
 
 @router.get("/{goal_id}", response_model=GoalResponse)
@@ -51,14 +44,8 @@ def get_goal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    goal = (
-        db.query(Goal)
-        .filter(Goal.id == goal_id, Goal.user_id == current_user.id)
-        .first()
-    )
-    if not goal:
-        raise HTTPException(status_code=404, detail="Ціль не знайдена")
-    return goal
+    service = GoalService(db)
+    return service.get_goal(current_user.id, goal_id)
 
 
 @router.put("/{goal_id}", response_model=GoalResponse)
@@ -68,21 +55,8 @@ def update_goal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    goal = (
-        db.query(Goal)
-        .filter(Goal.id == goal_id, Goal.user_id == current_user.id)
-        .first()
-    )
-    if not goal:
-        raise HTTPException(status_code=404, detail="Ціль не знайдена")
-
-    update_data = goal_in.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(goal, key, value)
-
-    db.commit()
-    db.refresh(goal)
-    return goal
+    service = GoalService(db)
+    return service.update_goal(current_user.id, goal_id, goal_in)
 
 
 @router.post("/{goal_id}/contribute", response_model=GoalResponse)
@@ -92,19 +66,8 @@ def contribute_to_goal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    goal = (
-        db.query(Goal)
-        .filter(Goal.id == goal_id, Goal.user_id == current_user.id)
-        .first()
-    )
-    if not goal:
-        raise HTTPException(status_code=404, detail="Ціль не знайдена")
-
-    goal.current_amount += contribution.amount
-
-    db.commit()
-    db.refresh(goal)
-    return goal
+    service = GoalService(db)
+    return service.contribute_to_goal(current_user.id, goal_id, contribution)
 
 
 @router.delete("/{goal_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -113,14 +76,6 @@ def delete_goal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    goal = (
-        db.query(Goal)
-        .filter(Goal.id == goal_id, Goal.user_id == current_user.id)
-        .first()
-    )
-    if not goal:
-        raise HTTPException(status_code=404, detail="Ціль не знайдена")
-
-    db.delete(goal)
-    db.commit()
+    service = GoalService(db)
+    service.delete_goal(current_user.id, goal_id)
     return None

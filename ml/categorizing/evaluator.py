@@ -42,19 +42,34 @@ class CategorizerEvaluator:
 
         accuracy = accuracy_score(y_test, y_pred)
         precision = precision_score(
-            y_test, y_pred, average="weighted", zero_division=0
+            y_test,
+            y_pred,
+            average="weighted",
+            zero_division=0,  # pyright: ignore[reportArgumentType]
         )
         recall = recall_score(
-            y_test, y_pred, average="weighted", zero_division=0
+            y_test,
+            y_pred,
+            average="weighted",
+            zero_division=0,  # pyright: ignore[reportArgumentType]
         )
-        f1 = f1_score(y_test, y_pred, average="weighted", zero_division=0)
+        f1 = f1_score(
+            y_test,
+            y_pred,
+            average="weighted",
+            zero_division=0,  # pyright: ignore[reportArgumentType]
+        )
 
         logger.info("Accuracy : %.4f", accuracy)
         logger.info("Precision: %.4f", precision)
         logger.info("Recall   : %.4f", recall)
         logger.info("F1 Score : %.4f", f1)
 
-        text_report = classification_report(y_test, y_pred, zero_division=0)
+        text_report = classification_report(
+            y_test,
+            y_pred,
+            zero_division=0,  # pyright: ignore[reportArgumentType]
+        )
 
         logger.info("\nClassification Report:\n%s", text_report)
 
@@ -64,7 +79,7 @@ class CategorizerEvaluator:
                 y_test,
                 y_pred,
                 output_dict=True,
-                zero_division=0,
+                zero_division=0,  # pyright: ignore[reportArgumentType]
             ),
         )
 
