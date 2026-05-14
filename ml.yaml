@@ -37,9 +37,22 @@ forecaster:
 
   sarima:
     seasonal: true
-    seasonal_period: 12
-    freq: ME
+
+    freq: W
+    seasonal_period: 4
+
     stepwise: true
     trace: false
+
     error_action: ignore
     suppress_warnings: true
+
+    information_criterion: aic
+
+    max_p: 3
+    max_q: 3
+    max_d: 2
+
+    max_P: 2
+    max_Q: 2
+    max_D: 1

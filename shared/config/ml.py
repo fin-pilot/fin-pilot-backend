@@ -72,6 +72,20 @@ class SARIMAConfig(BaseModel):
 
     suppress_warnings: bool = True
 
+    information_criterion: str = "aic"
+
+    max_p: int = 5
+
+    max_q: int = 5
+
+    max_d: int = 2
+
+    max_P: int = 2
+
+    max_Q: int = 2
+
+    max_D: int = 1
+
 
 class CategorizerConfig(BaseModel):
     model: CategorizerModelConfig

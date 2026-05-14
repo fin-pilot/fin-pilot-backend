@@ -1,25 +1,31 @@
-import logging
-import sys
+from logging.config import dictConfig
 
-LOG_FORMAT = "%(asctime)s | " "%(levelname)-8s | " "%(name)s | " "%(message)s"
+from uvicorn.logging import DefaultFormatter
 
-DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "()": DefaultFormatter,
+            "fmt": (
+                "%(levelprefix)s " "%(asctime)s | " "%(name)s | " "%(message)s"
+            ),
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "default": {
+            "formatter": "default",
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["default"],
+        "level": "INFO",
+    },
+}
 
 
-def setup_logging(level: int = logging.INFO) -> None:
-    root_logger = logging.getLogger()
-    if root_logger.handlers:
-        return
-
-    handler = logging.StreamHandler(sys.stdout)
-
-    formatter = logging.Formatter(fmt=LOG_FORMAT, datefmt=DATE_FORMAT)
-
-    handler.setFormatter(formatter)
-
-    root_logger.setLevel(level)
-    root_logger.addHandler(handler)
-
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
-    logging.getLogger("datasets").setLevel(logging.WARNING)
-    logging.getLogger("transformers").setLevel(logging.WARNING)
+def setup_logging() -> None:
+    dictConfig(LOGGING_CONFIG)

@@ -12,8 +12,8 @@ from backend.app.db.models import (
     TransactionType,
     UserTransactionRule,
 )
-from ml.models.categorizer import TransactionCategorizer
-from ml.models.forecaster import ExpenseForecaster
+from ml.categorizing.model import TransactionCategorizer
+from ml.forecasting.model import TransactionForecaster
 from shared.config import ml_settings
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class MLService:
     def __init__(self) -> None:
         self.categorizer = TransactionCategorizer(ml_settings)
 
-        self.forecaster = ExpenseForecaster(ml_settings)
+        self.forecaster = TransactionForecaster(ml_settings)
 
         self._is_categorizer_loaded = False
         self._is_forecaster_loaded = False
@@ -247,7 +247,7 @@ class MLService:
 
         if not transactions:
             logger.warning(
-                "No expense transactions found " "for user %s",
+                "No expense transactions found for user %s",
                 user_id,
             )
 
@@ -256,48 +256,52 @@ class MLService:
         df = pd.DataFrame(
             [
                 {
-                    "date": transaction.date,
-                    "amount": float(transaction.amount),
+                    "ds": pd.to_datetime(transaction.transaction_date),
+                    "y": float(transaction.amount),
                 }
                 for transaction in transactions
             ]
         )
 
-        if self._is_forecaster_loaded and self.forecaster.model is not None:
+        df = df.groupby("ds")["y"].sum().reset_index()
+
+        series = df.set_index("ds")["y"].asfreq("D", fill_value=0.0)
+
+        try:
+            if self._is_forecaster_loaded and self.forecaster.model is not None:
+                logger.info(
+                    "Updating existing forecasting model " "for user %s",
+                    user_id,
+                )
+
+                self.forecaster.update(series)
+
+            else:
+                logger.info(
+                    "Training new forecasting model " "for user %s",
+                    user_id,
+                )
+
+                self.forecaster.fit(series)
+
+            self.forecaster.save_model()
+
+            self._is_forecaster_loaded = True
+
             logger.info(
-                "Updating existing forecasting " "model for user %s",
+                "Forecasting model trained/updated " "successfully for user %s",
                 user_id,
             )
 
-            success = self.forecaster.update(df)
+            return True
 
-        else:
-            logger.info(
-                "Training new forecasting " "model for user %s",
-                user_id,
-            )
-
-            success = self.forecaster.train(df)
-
-        if not success:
-            logger.warning(
-                "Forecast training/update failed " "for user %s",
-                user_id,
+        except Exception as error:
+            logger.error(
+                "Forecast training failed: %s",
+                error,
             )
 
             return False
-
-        self.forecaster.save_model()
-
-        self._is_forecaster_loaded = True
-
-        logger.info(
-            "Forecasting model trained/updated "
-            "and saved successfully for user %s",
-            user_id,
-        )
-
-        return True
 
     def get_forecast_predictions(
         self,
@@ -316,7 +320,9 @@ class MLService:
             horizon,
         )
 
-        predictions = self.forecaster.predict(horizon)
+        forecast_df = self.forecaster.forecast(steps=horizon)
+
+        predictions = forecast_df["predicted_y"].tolist()
 
         return predictions
 
