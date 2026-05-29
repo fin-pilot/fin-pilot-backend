@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from fin_pilot_ml.categorizing.model import TransactionCategorizer
-from fin_pilot_ml.forecasting.models import TransactionForecaster 
+from fin_pilot_ml.forecasting.models import ForecastModels 
 
 from app.config import ml_settings 
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class MLService:
     def __init__(self) -> None:
         self.categorizer = TransactionCategorizer(ml_settings)
-        self.forecaster = TransactionForecaster(ml_settings)
+        self.forecaster = ForecastModels(ml_settings)
 
         self._is_categorizer_loaded = False
         self._is_forecaster_loaded = False
