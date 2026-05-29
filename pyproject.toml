@@ -36,7 +36,7 @@ dependencies = [
     "kagglehub",
     "typing-inspect",
 
-     "fin-pilot-ml @ git+https://github.com/fin-pilot/fin-pilot-ml.git"
+    "fin-pilot-ml @ git+https://github.com/fin-pilot/fin-pilot-ml.git"
 ]
 
 [project.optional-dependencies]
@@ -47,4 +47,4 @@ line-length = 80
 skip-string-normalization = false
 
 [tool.setuptools]
-packages = ["backend", "shared"]
+packages = ["app", "alembic"]
