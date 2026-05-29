@@ -2,8 +2,8 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi_utils.tasks import repeat_every
-from ml.utils.model_loader import (
+
+from app.utils.model_loader import (
     download_categorizer_model_if_needed,
     download_forecaster_model_if_needed,
 )
@@ -31,23 +31,34 @@ from app.services.recurring_service import (
 
 def run_recurring_engine() -> None:
     db = SESSION_LOCAL()
+
     try:
         process_recurring_transactions(db)
     finally:
         db.close()
 
 
-@repeat_every(seconds=60 * 60 * 24)
 async def recurring_task() -> None:
-    run_recurring_engine()
+    while True:
+        try:
+            await asyncio.to_thread(run_recurring_engine)
+
+        except Exception as e:
+            print(f"Error in recurring task: {e}")
+
+        await asyncio.sleep(60 * 60 * 24)
 
 
-@asynccontextmanager
-async def lifespan(application: FastAPI):  # pylint: disable=unused-argument
+def initialize_models() -> None:
     download_categorizer_model_if_needed()
     download_forecaster_model_if_needed()
 
     ml_service.load_model()
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    await asyncio.to_thread(initialize_models)
 
     db = SESSION_LOCAL()
 
@@ -56,9 +67,16 @@ async def lifespan(application: FastAPI):  # pylint: disable=unused-argument
     finally:
         db.close()
 
-    asyncio.create_task(recurring_task())
+    bg_task = asyncio.create_task(recurring_task())
 
     yield
+
+    bg_task.cancel()
+
+    try:
+        await bg_task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(
@@ -84,4 +102,6 @@ app.include_router(recurring.router)
 
 @app.get("/")
 def read_root():
-    return {"message": "API is running. Visit /docs for documentation."}
+    return {
+        "message": "API is running. Visit /docs for documentation."
+    }
