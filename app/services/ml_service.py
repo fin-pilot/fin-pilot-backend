@@ -2,14 +2,16 @@ import logging
 import re
 from uuid import UUID
 
+import joblib
 import pandas as pd
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from fin_pilot_ml.categorizing.config import CategorizingConfig
 from fin_pilot_ml.categorizing.model import TransactionCategorizer
 from fin_pilot_ml.forecasting.models import ForecastModels 
 
-from app.config import ml_settings 
+from app.utils.model_loader import CATEGORIZER_MODEL_PATH, FORECASTER_MODEL_PATH
 
 from app.db.models import (
     Category,
@@ -23,20 +25,20 @@ logger = logging.getLogger(__name__)
 
 class MLService:
     def __init__(self) -> None:
-        self.categorizer = TransactionCategorizer(ml_settings)
-        self.forecaster = ForecastModels(ml_settings)
+        categorizer_config = CategorizingConfig()
+        self.categorizer = TransactionCategorizer(categorizer_config)
+        self.forecaster_model = None
 
         self._is_categorizer_loaded = False
         self._is_forecaster_loaded = False
 
     def load_model(self) -> None:
-        """Завантажує всі ML моделі в пам'ять."""
         self.load_categorizer_model()
         self.load_forecaster_model()
 
     def load_categorizer_model(self) -> None:
         try:
-            self.categorizer.load_model()
+            self.categorizer.pipeline = joblib.load(CATEGORIZER_MODEL_PATH)
             self._is_categorizer_loaded = True
             logger.info("Categorizer model successfully loaded into memory.")
         except FileNotFoundError as error:
@@ -55,13 +57,9 @@ class MLService:
 
     def load_forecaster_model(self) -> None:
         try:
-            self.forecaster.load_model()
-            self._is_forecaster_loaded = self.forecaster.model is not None
-
-            if self._is_forecaster_loaded:
-                logger.info("Forecasting model successfully loaded into memory.")
-            else:
-                logger.warning("Forecasting model file not found.")
+            self.forecaster_model = joblib.load(FORECASTER_MODEL_PATH)
+            self._is_forecaster_loaded = True
+            logger.info("Forecasting model successfully loaded into memory.")
         except FileNotFoundError as error:
             self._is_forecaster_loaded = False
             logger.warning(
@@ -86,12 +84,9 @@ class MLService:
         if not description:
             return ""
 
-        # Видаляємо цифри
         text = re.sub(r"\d+", "", description)
-        # Замінюємо пунктуацію на пробіли
         text = re.sub(r"[^\w\s]", " ", text)
         
-        # Залишаємо лише слова довжиною більше 1 символу
         words = [word.upper() for word in text.split() if len(word) > 1]
         return " ".join(words).strip()
 
@@ -101,8 +96,6 @@ class MLService:
         user_id: UUID,
         description: str,
     ) -> tuple[UUID | None, str]:
-        
-        # 1. Перевірка користувацьких правил (Rule-based підхід)
         stmt_rule = (
             select(UserTransactionRule)
             .where(
@@ -119,13 +112,11 @@ class MLService:
         if rule:
             return rule.category_id, "rule-based"
 
-        # 2. Використання ML-моделі
         label = self.predict(description)
 
         if label == "Uncategorized":
             return None, label
 
-        # 3. Пошук відповідної категорії у БД
         stmt_cat = select(Category).where(
             Category.transaction_type == TransactionType.EXPENSE,
             Category.name.ilike(label),
@@ -194,7 +185,6 @@ class MLService:
             logger.warning("No expense transactions found for user %s", user_id)
             return False
 
-        # Формування DataFrame для часового ряду
         df = pd.DataFrame(
             [
                 {
@@ -205,23 +195,21 @@ class MLService:
             ]
         )
 
-        # Агрегація по днях та заповнення пустих значень
         df = df.groupby("ds")["y"].sum().reset_index()
         series = df.set_index("ds")["y"].asfreq("D", fill_value=0.0)
 
         try:
-            # Оновлення або тренування моделі
-            if self._is_forecaster_loaded and self.forecaster.model is not None:
-                logger.info("Updating existing forecasting model for user %s", user_id)
-                self.forecaster.update(series)
-            else:
-                logger.info("Training new forecasting model for user %s", user_id)
-                self.forecaster.fit(series)
+            # TODO: Extract order and seasonal_order from ForecastingConfig or define in config
+            self.forecaster_model = ForecastModels.train_sarima(
+                train_data=series,
+                order=(0, 1, 1),
+                seasonal_order=(0, 1, 1, 4)
+            )
 
-            self.forecaster.save_model()
+            joblib.dump(self.forecaster_model, FORECASTER_MODEL_PATH)
             self._is_forecaster_loaded = True
             
-            logger.info("Forecasting model trained/updated successfully for user %s", user_id)
+            logger.info("Forecasting model trained successfully for user %s", user_id)
             return True
 
         except Exception as error:
@@ -234,32 +222,31 @@ class MLService:
         user_id: UUID,
         horizon: int,
     ) -> list[float]:
-        if not self._is_forecaster_loaded or self.forecaster.model is None:
+        if not self._is_forecaster_loaded or self.forecaster_model is None:
             logger.warning("Forecast model is not loaded.")
             return []
 
         logger.info("Generating forecast for user %s for %d periods", user_id, horizon)
 
-        forecast_df = self.forecaster.forecast(steps=horizon)
-        predictions = forecast_df["predicted_y"].tolist()
+        forecast_series = self.forecaster_model.forecast(steps=horizon)
+        predictions = forecast_series.tolist()
 
         return predictions
 
     def get_user_seasonality(self, user_id: UUID) -> dict | None:
-        if not self._is_forecaster_loaded or self.forecaster.model is None:
+        if not self._is_forecaster_loaded or self.forecaster_model is None:
             logger.warning("Seasonality requested but model is not loaded.")
             return None
 
         try:
-            model = self.forecaster.model
+            underlying_model = self.forecaster_model.model
             return {
-                "order": model.order,
-                "seasonal_order": model.seasonal_order,
-                "seasonal_period": model.seasonal_order[-1] if model.seasonal_order else None,
+                "order": underlying_model.order,
+                "seasonal_order": underlying_model.seasonal_order,
+                "seasonal_period": underlying_model.seasonal_order[-1] if underlying_model.seasonal_order else None,
             }
         except (AttributeError, ValueError, TypeError) as error:
             logger.error("Failed to extract seasonality: %s", error)
             return None
 
-# Екземпляр сервісу (Singleton Pattern)
 ml_service = MLService()

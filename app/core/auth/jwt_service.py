@@ -1,5 +1,3 @@
-"""JWT token management service."""
-
 from datetime import datetime, timedelta, timezone
 from typing import TypeAlias
 
@@ -11,8 +9,6 @@ TokenType: TypeAlias = str
 
 
 class JWTService:
-    """Manages JWT token creation and validation."""
-
     def __init__(self) -> None:
         self._secret_key = backend_settings.SECRET_KEY
         self._algorithm = backend_settings.ALGORITHM
@@ -24,7 +20,6 @@ class JWTService:
         )
 
     def create_access_token(self, user_id: str) -> str:
-        """Create an access token for the given user ID."""
         expire = datetime.now(timezone.utc) + timedelta(
             minutes=self._access_token_expire_minutes
         )
@@ -39,7 +34,6 @@ class JWTService:
         )
 
     def create_refresh_token(self, user_id: str) -> str:
-        """Create a refresh token for the given user ID."""
         expire = datetime.now(timezone.utc) + timedelta(
             days=self._refresh_token_expire_days
         )
@@ -54,10 +48,6 @@ class JWTService:
         )
 
     def decode_token(self, token: str) -> dict:
-        """Decode and validate a JWT token.
-
-        Raises JWTError if token is invalid or expired.
-        """
         return jwt.decode(
             token,
             self._secret_key,
@@ -65,11 +55,6 @@ class JWTService:
         )
 
     def validate_refresh_token(self, token: str) -> str:
-        """Validate a refresh token and extract the user ID.
-
-        Returns the user_id from the token.
-        Raises JWTError or ValueError if token is invalid.
-        """
         payload = self.decode_token(token)
 
         if payload.get("token_use") != "refresh":

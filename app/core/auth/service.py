@@ -1,5 +1,3 @@
-"""User authentication and account management service."""
-
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -12,8 +10,6 @@ from app.core.auth.password_service import PasswordService
 
 
 class AuthService:
-    """Service for user authentication operations."""
-
     def __init__(self, db: Session) -> None:
         self._db = db
         self._user_repo = UserRepository(db)
@@ -21,10 +17,6 @@ class AuthService:
         self._password_service = PasswordService()
 
     def register(self, user_in: UserCreate) -> UserResponse:
-        """Register a new user.
-
-        Raises ConflictError if user with email already exists.
-        """
         existing_user = self._user_repo.get_by_email(user_in.email)
         if existing_user:
             raise ConflictError("User with this email already exists")
@@ -42,11 +34,6 @@ class AuthService:
         return UserResponse.model_validate(new_user)
 
     def authenticate_user(self, email: str, password: str) -> tuple[str, str]:
-        """Authenticate user and return (access_token, refresh_token).
-
-        Raises NotFoundError if user not found.
-        Raises ValueError if password is incorrect.
-        """
         user = self._user_repo.get_by_email(email)
         if not user:
             raise NotFoundError("User not found")
@@ -63,12 +50,6 @@ class AuthService:
         return access_token, refresh_token
 
     def refresh_access_token(self, refresh_token: str) -> tuple[str, str]:
-        """Refresh the access token using a refresh token.
-
-        Raises ValueError if refresh token is invalid.
-        Raises NotFoundError if user not found.
-        Returns new (access_token, refresh_token) pair.
-        """
         try:
             user_id_str = self._jwt_service.validate_refresh_token(
                 refresh_token

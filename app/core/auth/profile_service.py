@@ -1,5 +1,3 @@
-"""User profile management service."""
-
 from sqlalchemy.orm import Session
 
 from app.repositories.user_repository import UserRepository
@@ -7,17 +5,11 @@ from app.schemas.user import UserResponse, UserUpdate
 
 
 class UserProfileService:
-    """Service for user profile management."""
-
     def __init__(self, db: Session) -> None:
         self._db = db
         self._user_repo = UserRepository(db)
 
     def update_profile(self, user_id, update_data: UserUpdate) -> UserResponse:
-        """Update user profile information.
-
-        Updates full_name and/or email if provided.
-        """
         user = self._user_repo.get_by_id(user_id)
         if not user:
             from app.core.exceptions import NotFoundError
