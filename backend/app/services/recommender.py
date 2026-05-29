@@ -1,10 +1,12 @@
 from typing import Dict, List
+
 from backend.app.schemas.analytics import RecommendationItem
 
 
 class FinanceRecommender:
+    @staticmethod
     def analyze_spending(
-        self, income: float, expenses_by_category: Dict[str, float]
+        income: float, expenses_by_category: Dict[str, float]
     ) -> List[RecommendationItem]:
         recommendations = []
         total_expense = sum(expenses_by_category.values())

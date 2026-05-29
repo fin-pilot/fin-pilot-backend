@@ -6,7 +6,12 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from backend.app.db.models import Account, Budget, Transaction, TransactionType
+from backend.app.db.models import (
+    Account,
+    Budget,
+    Transaction,
+    TransactionType,
+)
 
 
 class BudgetRepository:
@@ -14,16 +19,18 @@ class BudgetRepository:
         self._db = db
 
     def list_by_user(self, user_id: UUID) -> list[Budget]:
-        return self._db.query(Budget).filter(Budget.user_id == user_id).all()
+        stmt = select(Budget).where(Budget.user_id == user_id)
+
+        return list(self._db.scalars(stmt).all())
 
     def get_by_id_for_user(
         self, budget_id: UUID, user_id: UUID
     ) -> Budget | None:
-        return (
-            self._db.query(Budget)
-            .filter(Budget.id == budget_id, Budget.user_id == user_id)
-            .first()
+        stmt = select(Budget).where(
+            Budget.id == budget_id, Budget.user_id == user_id
         )
+
+        return self._db.scalar(stmt)
 
     def get_spent_amount(
         self,
@@ -32,7 +39,7 @@ class BudgetRepository:
         start_date: datetime,
         end_date: datetime,
     ) -> float:
-        spent = self._db.execute(
+        stmt = (
             select(func.coalesce(func.sum(Transaction.amount), 0.0))
             .join(Account, Transaction.account_id == Account.id)
             .where(
@@ -42,11 +49,15 @@ class BudgetRepository:
                 Transaction.transaction_date >= start_date,
                 Transaction.transaction_date <= end_date,
             )
-        ).scalar_one()
-        return float(spent)
+        )
+
+        spent = self._db.scalar(stmt)
+
+        return float(spent or 0.0)
 
     def add(self, budget: Budget) -> Budget:
         self._db.add(budget)
+
         return budget
 
     def delete(self, budget: Budget) -> None:

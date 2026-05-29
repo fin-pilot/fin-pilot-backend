@@ -33,4 +33,4 @@ class UserProfileService:
             self._db.add(user)
 
         self._db.refresh(user)
-        return UserResponse.from_orm(user)
+        return UserResponse.model_validate(user)

@@ -39,7 +39,7 @@ class AuthService:
             )
 
         self._db.refresh(new_user)
-        return UserResponse.from_orm(new_user)
+        return UserResponse.model_validate(new_user)
 
     def authenticate_user(self, email: str, password: str) -> tuple[str, str]:
         """Authenticate user and return (access_token, refresh_token).

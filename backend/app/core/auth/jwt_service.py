@@ -76,7 +76,8 @@ class JWTService:
             raise JWTError("Invalid token type")
 
         user_id = payload.get("sub")
-        if not user_id:
+
+        if not isinstance(user_id, str):
             raise JWTError("Invalid token: missing user ID")
 
         return user_id

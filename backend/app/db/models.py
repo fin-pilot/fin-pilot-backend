@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from datetime import date, datetime
 import enum
 import uuid
+from datetime import date, datetime
 from typing import Optional
-from sqlalchemy.sql import functions
+
 from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
     Enum,
-    Float,
     ForeignKey,
     Numeric,
     String,
@@ -18,6 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.sql import functions
 
 
 class Base(DeclarativeBase):

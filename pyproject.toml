@@ -35,6 +35,8 @@ dependencies = [
     "pmdarima",
     "kagglehub",
     "typing-inspect",
+
+     "fin-pilot-ml @ git+https://github.com/fin-pilot/fin-pilot-ml.git"
 ]
 
 [project.optional-dependencies]
@@ -43,3 +45,6 @@ dev = ["black", "pylint"]
 [tool.black]
 line-length = 80
 skip-string-normalization = false
+
+[tool.setuptools]
+packages = ["backend", "shared"]

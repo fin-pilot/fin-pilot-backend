@@ -1,19 +1,16 @@
+import sys
+from logging.config import fileConfig
+from pathlib import Path
+
+from alembic import context
+from sqlalchemy import engine_from_config
+from sqlalchemy import pool
+from sqlalchemy_utils import database_exists, create_database
+
 from backend.app.db.database import Base
 from shared.config import backend_settings
 
-# pylint: disable=unused-import
-import backend.app.db.models
-
-import os
-import sys
-from logging.config import fileConfig
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-from alembic import context
-from sqlalchemy_utils import database_exists, create_database
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 config = context.config
 

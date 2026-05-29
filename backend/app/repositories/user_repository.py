@@ -1,5 +1,8 @@
 """User persistence operations."""
 
+from uuid import UUID
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.app.db.models import User
@@ -13,14 +16,21 @@ class UserRepository:
 
     def get_by_email(self, email: str) -> User | None:
         """Get a user by email address."""
-        return self._db.query(User).filter(User.email == email).first()
+        stmt = select(User).where(User.email == email)
 
-    def get_by_id(self, user_id) -> User | None:
+        return self._db.scalar(stmt)
+
+    def get_by_id(self, user_id: UUID) -> User | None:
         """Get a user by ID."""
-        return self._db.query(User).filter(User.id == user_id).first()
+        stmt = select(User).where(User.id == user_id)
+
+        return self._db.scalar(stmt)
 
     def create(
-        self, email: str, hashed_password: str, full_name: str | None = None
+        self,
+        email: str,
+        hashed_password: str,
+        full_name: str | None = None,
     ) -> User:
         """Create and persist a new user."""
         user = User(
@@ -28,5 +38,7 @@ class UserRepository:
             hashed_password=hashed_password,
             full_name=full_name,
         )
+
         self._db.add(user)
+
         return user

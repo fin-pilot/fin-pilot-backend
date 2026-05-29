@@ -1,14 +1,13 @@
 import asyncio
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi_utils.tasks import repeat_every
-from shared.logging import setup_logging
-from backend.app.db.database import SESSION_LOCAL
-from backend.app.db.seeds import seed_categories
-from backend.app.services.recurring_service import (
-    process_recurring_transactions,
+from ml.utils.model_loader import (
+    download_categorizer_model_if_needed,
+    download_forecaster_model_if_needed,
 )
-from backend.app.services.ml_service import ml_service
+
 from backend.app.api.exception_handlers import register_exception_handlers
 from backend.app.api.routes import (
     auth,
@@ -22,10 +21,13 @@ from backend.app.api.routes import (
     goals,
     recurring,
 )
-from ml.utils.model_loader import (
-    download_categorizer_model_if_needed,
-    download_forecaster_model_if_needed,
+from backend.app.db.database import SESSION_LOCAL
+from backend.app.db.seeds import seed_categories
+from backend.app.services.ml_service import ml_service
+from backend.app.services.recurring_service import (
+    process_recurring_transactions,
 )
+from shared.logging import setup_logging
 
 setup_logging()
 

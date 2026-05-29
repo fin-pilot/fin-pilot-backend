@@ -3,7 +3,9 @@ import re
 from uuid import UUID
 
 import pandas as pd
-from sqlalchemy import func
+from ml.categorizing.model import TransactionCategorizer
+from ml.forecasting.model import TransactionForecaster
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.app.db.models import (
@@ -12,8 +14,6 @@ from backend.app.db.models import (
     TransactionType,
     UserTransactionRule,
 )
-from ml.categorizing.model import TransactionCategorizer
-from ml.forecasting.model import TransactionForecaster
 from shared.config import ml_settings
 
 logger = logging.getLogger(__name__)
@@ -100,8 +100,8 @@ class MLService:
 
         return self.categorizer.predict([description])[0]
 
+    @staticmethod
     def _extract_keyword(
-        self,
         description: str,
     ) -> str:
         if not description:
@@ -129,38 +129,37 @@ class MLService:
         user_id: UUID,
         description: str,
     ) -> tuple[UUID | None, str]:
-        rule = (
-            db.query(UserTransactionRule)
-            .filter(
+
+        stmt_rule = (
+            select(UserTransactionRule)
+            .where(
                 UserTransactionRule.user_id == user_id,
                 func.upper(description).contains(
                     func.upper(UserTransactionRule.keyword)
                 ),
             )
             .order_by(func.length(UserTransactionRule.keyword).desc())
-            .first()
+        )
+
+        rule: UserTransactionRule | None = (
+            db.execute(stmt_rule).scalars().first()
         )
 
         if rule:
-            return (
-                rule.category_id,
-                "rule-based",
-            )
+            return rule.category_id, "rule-based"
 
         label = self.predict(description)
 
         if label == "Uncategorized":
             return None, label
 
-        category = (
-            db.query(Category)
-            .filter(
-                Category.transaction_type == TransactionType.EXPENSE,
-                Category.name.ilike(label),
-                (Category.user_id == user_id) | (Category.user_id.is_(None)),
-            )
-            .first()
+        stmt_cat = select(Category).where(
+            Category.transaction_type == TransactionType.EXPENSE,
+            Category.name.ilike(label),
+            (Category.user_id == user_id) | (Category.user_id.is_(None)),
         )
+
+        category: Category | None = db.execute(stmt_cat).scalars().first()
 
         if category:
             return category.id, label
@@ -340,7 +339,7 @@ class MLService:
 
             return {
                 "order": model.order,
-                "seasonal_order": (model.seasonal_order),
+                "seasonal_order": model.seasonal_order,
                 "seasonal_period": (model.seasonal_order[-1]),
             }
 

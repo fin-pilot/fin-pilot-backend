@@ -13,8 +13,8 @@ class LedgerService:
     def __init__(self, db: Session) -> None:
         self._db = db
 
+    @staticmethod
     def validate_transfer(
-        self,
         transaction_type: TransactionType,
         dest_account: Account | None,
     ) -> None:

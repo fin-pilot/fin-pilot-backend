@@ -1,6 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.app.api.dependencies import get_current_user
@@ -25,24 +27,35 @@ async def categorize_description(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    category_id: UUID | None
+    label: str
+
     category_id, label = ml_service.categorize_transaction_description(
-        db, current_user.id, request.description
+        db,
+        current_user.id,
+        request.description,
     )
+
     is_fallback = False
-    if not category_id:
+
+    if category_id is None:
         is_fallback = True
-        fallback_cat = (
-            db.query(Category)
-            .filter(
-                Category.name == "Other",
-                Category.transaction_type == TransactionType.EXPENSE,
-                Category.user_id.is_(None),
-            )
-            .first()
+
+        stmt = select(Category).where(
+            Category.name == "Other",
+            Category.transaction_type == TransactionType.EXPENSE,
+            Category.user_id.is_(None),
         )
-        if fallback_cat:
+
+        fallback_cat = db.execute(stmt).scalars().first()
+
+        if fallback_cat is not None:
             category_id = fallback_cat.id
-        message = f"Model predicted '{label}', but it's not in your DB. Using 'Other'."
+
+        message = (
+            f"Model predicted '{label}', "
+            "but it's not in your DB. Using 'Other'."
+        )
     else:
         message = "Success! Predicted category matches your Database."
 
@@ -95,10 +108,10 @@ async def predict_expenses(
     if not raw_predictions:
         return PredictForecastResponse(
             predictions=[],
-            message=("Модель ще не навчена або недостатньо даних для прогнозу"),
+            message="Модель ще не навчена або недостатньо даних для прогнозу",
         )
 
-    today = datetime.utcnow().date()
+    today = datetime.now(UTC).date()
 
     predictions = [
         ForecastPoint(

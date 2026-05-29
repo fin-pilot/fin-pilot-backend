@@ -20,8 +20,8 @@ from backend.app.schemas.transaction import (
     TransactionImportResult,
     TransactionUpdate,
 )
-from backend.app.services.ml_service import ml_service
 from backend.app.services.ledger_service import LedgerService
+from backend.app.services.ml_service import ml_service
 
 
 class TransactionService:
@@ -138,9 +138,10 @@ class TransactionService:
             and trans_in.category_id != trans.category_id
         )
 
-        if trans_in.category_id is not None:
+        category_id: UUID | None = trans_in.category_id
+        if category_id is not None:
             category = self._categories.get_for_user_or_global(
-                trans_in.category_id,
+                category_id,
                 user_id,
             )
             if not category:

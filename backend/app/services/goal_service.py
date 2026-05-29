@@ -29,7 +29,7 @@ class GoalService:
             user_id=user_id,
             name=goal_in.name,
             target_amount=goal_in.target_amount,
-            current_amount=goal_in.current_amount,
+            current_amount=goal_in.current_amount or 0.0,
             deadline=goal_in.deadline,
         )
         with self._db.begin():
