@@ -32,10 +32,15 @@ class GoalService:
             current_amount=goal_in.current_amount or 0.0,
             deadline=goal_in.deadline,
         )
-        with self._db.begin():
+        
+        try:
             self._repo.add(goal)
-        self._db.refresh(goal)
-        return goal
+            self._db.commit()
+            self._db.refresh(goal)
+            return goal
+        except Exception:
+            self._db.rollback()
+            raise
 
     def update_goal(
         self,
@@ -49,10 +54,15 @@ class GoalService:
 
         update_data = goal_in.model_dump(exclude_unset=True)
         if update_data:
-            with self._db.begin():
+            try:
                 for key, value in update_data.items():
                     setattr(goal, key, value)
-            self._db.refresh(goal)
+                
+                self._db.commit()
+                self._db.refresh(goal)
+            except Exception:
+                self._db.rollback()
+                raise
 
         return goal
 
@@ -66,14 +76,23 @@ class GoalService:
         if not goal:
             raise NotFoundError("Ціль не знайдена")
 
-        with self._db.begin():
+        try:
             goal.current_amount += contribution.amount
-        self._db.refresh(goal)
-        return goal
+            self._db.commit()
+            self._db.refresh(goal)
+            return goal
+        except Exception:
+            self._db.rollback()
+            raise
 
     def delete_goal(self, user_id: UUID, goal_id: UUID) -> None:
         goal = self._repo.get_by_id_for_user(goal_id, user_id)
         if not goal:
             raise NotFoundError("Ціль не знайдена")
-        with self._db.begin():
+            
+        try:
             self._repo.delete(goal)
+            self._db.commit()
+        except Exception:
+            self._db.rollback()
+            raise

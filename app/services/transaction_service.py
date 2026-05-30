@@ -99,7 +99,7 @@ class TransactionService:
         data = trans_in.model_dump()
         new_transaction = Transaction(**data)
 
-        with self._db.begin():
+        try:
             self._ledger.apply_transaction(
                 account,
                 dest_account,
@@ -120,8 +120,13 @@ class TransactionService:
                     new_transaction.category_id,
                 )
 
-        self._db.refresh(new_transaction)
-        return new_transaction
+            self._db.commit()
+            self._db.refresh(new_transaction)
+            return new_transaction
+            
+        except Exception:
+            self._db.rollback()
+            raise
 
     def update_transaction(
         self,
@@ -154,7 +159,7 @@ class TransactionService:
             trans_in.amount is not None and trans_in.amount != trans.amount
         )
 
-        with self._db.begin():
+        try:
             if amount_changed:
                 self._ledger.update_transaction(
                     trans.account,
@@ -180,15 +185,20 @@ class TransactionService:
                     trans.category_id,
                 )
 
-        self._db.refresh(trans)
-        return trans
+            self._db.commit()
+            self._db.refresh(trans)
+            return trans
+            
+        except Exception:
+            self._db.rollback()
+            raise
 
     def delete_transaction(self, user_id: UUID, trans_id: UUID) -> None:
         trans = self._repo.get_for_user(trans_id, user_id)
         if not trans:
             raise NotFoundError("Transaction not found")
 
-        with self._db.begin():
+        try:
             self._ledger.reverse_transaction(
                 trans.account,
                 trans.destination_account,
@@ -196,6 +206,10 @@ class TransactionService:
                 trans.transaction_type,
             )
             self._repo.delete(trans)
+            self._db.commit()
+        except Exception:
+            self._db.rollback()
+            raise
 
     def export_transactions(self, user_id: UUID) -> Iterable[str]:
         rows = self._repo.list_for_user_export(user_id)
@@ -320,7 +334,8 @@ class TransactionService:
                 else:
                     tdate = datetime.now().astimezone()
 
-                with self._db.begin():
+                # Inner try/except to save the row, or gracefully skip it on DB error
+                try:
                     self._ledger.apply_transaction(
                         account,
                         dest_account,
@@ -348,8 +363,15 @@ class TransactionService:
                             desc,
                             cat_id,
                         )
+                    
+                    self._db.commit()
+                    created += 1
 
-                created += 1
+                except Exception as db_exc:
+                    self._db.rollback()
+                    errors.append(f"Line {i}: Database error - {str(db_exc)}")
+                    skipped += 1
+
             except (ValueError, TypeError, ValidationError) as exc:
                 errors.append(f"Line {i}: {exc}")
                 skipped += 1

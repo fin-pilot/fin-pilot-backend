@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from uuid import UUID
-
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError
@@ -36,10 +35,15 @@ class AccountService:
             currency=account_in.currency,
             user_id=user_id,
         )
-        with self._db.begin():
+        
+        try:
             self._repo.add(account)
-        self._db.refresh(account)
-        return account
+            self._db.commit()
+            self._db.refresh(account)
+            return account
+        except Exception:
+            self._db.rollback()
+            raise
 
     def update_account(
         self,
@@ -53,10 +57,15 @@ class AccountService:
 
         update_data = account_in.model_dump(exclude_unset=True)
         if update_data:
-            with self._db.begin():
+            try:
                 for key, value in update_data.items():
                     setattr(account, key, value)
-            self._db.refresh(account)
+                
+                self._db.commit()
+                self._db.refresh(account)
+            except Exception:
+                self._db.rollback()
+                raise
 
         return account
 
@@ -64,5 +73,10 @@ class AccountService:
         account = self._repo.get_by_id_for_user(account_id, user_id)
         if not account:
             raise NotFoundError("Account not found")
-        with self._db.begin():
+            
+        try:
             self._repo.delete(account)
+            self._db.commit()
+        except Exception:
+            self._db.rollback()
+            raise

@@ -16,13 +16,10 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import functions
 
-
-class Base(DeclarativeBase):
-    pass
-
+from app.db.base import Base
 
 class TransactionType(str, enum.Enum):
     INCOME = "income"

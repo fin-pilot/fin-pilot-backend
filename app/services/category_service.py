@@ -28,10 +28,15 @@ class CategoryService:
             transaction_type=category_in.type,
             user_id=user_id,
         )
-        with self._db.begin():
+        
+        try:
             self._repo.add(category)
-        self._db.refresh(category)
-        return category
+            self._db.commit()
+            self._db.refresh(category)
+            return category
+        except Exception:
+            self._db.rollback()
+            raise
 
     def update_category(
         self,
@@ -48,10 +53,15 @@ class CategoryService:
             update_data["transaction_type"] = update_data.pop("type")
 
         if update_data:
-            with self._db.begin():
+            try:
                 for key, value in update_data.items():
                     setattr(category, key, value)
-            self._db.refresh(category)
+                
+                self._db.commit()
+                self._db.refresh(category)
+            except Exception:
+                self._db.rollback()
+                raise
 
         return category
 
@@ -59,5 +69,10 @@ class CategoryService:
         category = self._repo.get_user_category(category_id, user_id)
         if not category:
             raise NotFoundError("Category not found or access denied")
-        with self._db.begin():
+            
+        try:
             self._repo.delete(category)
+            self._db.commit()
+        except Exception:
+            self._db.rollback()
+            raise

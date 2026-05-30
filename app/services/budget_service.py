@@ -66,9 +66,13 @@ class BudgetService:
             end_date=budget_in.end_date,
         )
 
-        with self._db.begin():
+        try:
             self._repo.add(budget)
-        self._db.refresh(budget)
+            self._db.commit()
+            self._db.refresh(budget)
+        except Exception:
+            self._db.rollback()
+            raise
 
         return BudgetResponse(
             id=budget.id,
@@ -93,10 +97,15 @@ class BudgetService:
 
         update_data = budget_in.model_dump(exclude_unset=True)
         if update_data:
-            with self._db.begin():
+            try:
                 for key, value in update_data.items():
                     setattr(budget, key, value)
-            self._db.refresh(budget)
+                
+                self._db.commit()
+                self._db.refresh(budget)
+            except Exception:
+                self._db.rollback()
+                raise
 
         spent = self._repo.get_spent_amount(
             user_id=user_id,
@@ -120,5 +129,10 @@ class BudgetService:
         budget = self._repo.get_by_id_for_user(budget_id, user_id)
         if not budget:
             raise NotFoundError("Budget not found")
-        with self._db.begin():
+            
+        try:
             self._repo.delete(budget)
+            self._db.commit()
+        except Exception:
+            self._db.rollback()
+            raise

@@ -16,6 +16,7 @@ class AuthService:
         self._jwt_service = JWTService()
         self._password_service = PasswordService()
 
+
     def register(self, user_in: UserCreate) -> UserResponse:
         existing_user = self._user_repo.get_by_email(user_in.email)
         if existing_user:
@@ -23,15 +24,21 @@ class AuthService:
 
         hashed_password = self._password_service.hash_password(user_in.password)
 
-        with self._db.begin():
+        try:
             new_user = self._user_repo.create(
                 email=user_in.email,
                 hashed_password=hashed_password,
                 full_name=user_in.full_name,
             )
 
-        self._db.refresh(new_user)
-        return UserResponse.model_validate(new_user)
+            self._db.commit()
+            self._db.refresh(new_user)
+            
+            return UserResponse.model_validate(new_user)
+            
+        except Exception:
+            self._db.rollback()
+            raise
 
     def authenticate_user(self, email: str, password: str) -> tuple[str, str]:
         user = self._user_repo.get_by_email(email)

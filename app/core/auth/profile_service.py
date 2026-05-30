@@ -9,11 +9,10 @@ class UserProfileService:
         self._db = db
         self._user_repo = UserRepository(db)
 
-    def update_profile(self, user_id, update_data: UserUpdate) -> UserResponse:
+def update_profile(self, user_id, update_data: UserUpdate) -> UserResponse:
         user = self._user_repo.get_by_id(user_id)
         if not user:
             from app.core.exceptions import NotFoundError
-
             raise NotFoundError("User not found")
 
         if update_data.full_name:
@@ -21,8 +20,13 @@ class UserProfileService:
         if update_data.email:
             user.email = update_data.email
 
-        with self._db.begin():
+        try:
             self._db.add(user)
-
-        self._db.refresh(user)
-        return UserResponse.model_validate(user)
+            self._db.commit()
+            
+            self._db.refresh(user)
+            return UserResponse.model_validate(user)
+            
+        except Exception:
+            self._db.rollback()
+            raise

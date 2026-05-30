@@ -78,10 +78,14 @@ class RecurringService:
             next_date=start_date,
         )
 
-        with self._db.begin():
+        try:
             self._repo.add(recurring)
-        self._db.refresh(recurring)
-        return recurring
+            self._db.commit()
+            self._db.refresh(recurring)
+            return recurring
+        except Exception:
+            self._db.rollback()
+            raise
 
     def update_recurring(
         self,
@@ -95,10 +99,15 @@ class RecurringService:
 
         update_data = recurring_in.model_dump(exclude_unset=True)
         if update_data:
-            with self._db.begin():
+            try:
                 for key, value in update_data.items():
                     setattr(recurring, key, value)
-            self._db.refresh(recurring)
+                
+                self._db.commit()
+                self._db.refresh(recurring)
+            except Exception:
+                self._db.rollback()
+                raise
 
         return recurring
 
@@ -106,8 +115,13 @@ class RecurringService:
         recurring = self._repo.get_by_id_for_user(recurring_id, user_id)
         if not recurring:
             raise NotFoundError("Регулярний платіж не знайдено")
-        with self._db.begin():
+            
+        try:
             self._repo.delete(recurring)
+            self._db.commit()
+        except Exception:
+            self._db.rollback()
+            raise
 
     def process_due(self, today: date | None = None) -> int:
         target_date = today or date.today()
@@ -116,7 +130,8 @@ class RecurringService:
             return 0
 
         now = datetime.now().astimezone()
-        with self._db.begin():
+        
+        try:
             for sub in due_subscriptions:
                 account = self._accounts.get_by_id(sub.account_id)
                 if not account:
@@ -139,6 +154,14 @@ class RecurringService:
                     sub.transaction_type,
                 )
                 self._advance_next_date(sub)
+                
+            # Commit the entire batch of recurring transactions at once
+            self._db.commit()
+            
+        except Exception:
+            # If any single subscription fails, roll them all back
+            self._db.rollback()
+            raise
 
         return len(due_subscriptions)
 
