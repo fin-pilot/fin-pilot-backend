@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -46,8 +46,22 @@ class OverspendingPoint(BaseModel):
     amount: float
 
 
+class RecommendationItem(BaseModel):
+    """Three-tier recommendation produced by the ML engine."""
+
+    tier: Literal["preventive", "optimisation", "strategic"] = Field(
+        description="Рівень рекомендації"
+    )
+    category: str = Field(description="Категорія витрат")
+    diagnosis: str = Field(description="Опис виявленої ситуації")
+    action: str = Field(description="Пропозиція дії з числовим параметром")
+    projected_effect: str = Field(description="Очікуваний ефект")
+    confidence: float = Field(description="Впевненість алгоритму (0.0–1.0)")
+
+
 class RecommendationsResponse(BaseModel):
-    recommendations: List[str]
+    recommendations: List[RecommendationItem]
+    generated_at: str
 
 
 class ImportSummaryResponse(BaseModel):
@@ -89,10 +103,3 @@ class AnomalyItem(BaseModel):
     )
 
 
-class RecommendationItem(BaseModel):
-    text: str = Field(description="Текст персоналізованої поради")
-    type: str = Field(description="Тип: 'warning', 'success' або 'info'")
-    action_link: Optional[str] = Field(
-        None,
-        description="Посилання для швидкої дії на фронтенді (наприклад, '/budgets')",
-    )

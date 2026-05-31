@@ -11,6 +11,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Integer,
     Numeric,
     String,
     UniqueConstraint,
@@ -37,6 +38,13 @@ class RecurringInterval(str, enum.Enum):
     WEEKLY = "weekly"
     MONTHLY = "monthly"
     YEARLY = "yearly"
+
+
+class MLTrainingStatus(str, enum.Enum):
+    PENDING = "pending"
+    TRAINING = "training"
+    READY = "ready"
+    FAILED = "failed"
 
 
 class User(Base):
@@ -104,6 +112,12 @@ class User(Base):
     recurring_transactions: Mapped[list["RecurringTransaction"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+
+    ml_state: Mapped[Optional["UserMLState"]] = relationship(
+        back_populates="owner",
+        cascade="all, delete-orphan",
+        uselist=False,
     )
 
 
@@ -577,3 +591,54 @@ class RecurringTransaction(Base):
     account: Mapped["Account"] = relationship()
 
     category: Mapped[Optional["Category"]] = relationship()
+
+
+class UserMLState(Base):
+    """Tracks per-user ML model training state and artifact paths."""
+
+    __tablename__ = "user_ml_states"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        index=True,
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    training_status: Mapped[MLTrainingStatus] = mapped_column(
+        Enum(MLTrainingStatus),
+        default=MLTrainingStatus.PENDING,
+        nullable=False,
+    )
+
+    sarima_model_path: Mapped[Optional[str]] = mapped_column(
+        String,
+        nullable=True,
+    )
+
+    n_training_samples: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    last_trained_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    error_message: Mapped[Optional[str]] = mapped_column(
+        String,
+        nullable=True,
+    )
+
+    owner: Mapped["User"] = relationship(
+        back_populates="ml_state",
+    )

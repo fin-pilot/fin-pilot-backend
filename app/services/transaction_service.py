@@ -21,7 +21,7 @@ from app.schemas.transaction import (
     TransactionUpdate,
 )
 from app.services.ledger_service import LedgerService
-from app.services.ml_service import ml_service
+from app.services.ml_service import backend_ml_service as ml_service
 
 
 class TransactionService:
@@ -400,7 +400,7 @@ class TransactionService:
                 return category.id
 
         if desc and tx_type == TransactionType.EXPENSE:
-            cat_id, _ = ml_service.categorize_transaction_description(
+            cat_id, _, _confidence = ml_service.categorise_description(
                 self._db,
                 user_id,
                 desc,

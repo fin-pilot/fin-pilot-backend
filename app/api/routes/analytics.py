@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import List, Optional, Literal
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -34,8 +34,7 @@ def get_summary(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
 ):
-    service = _service(db)
-    return service.summary(current_user.id, start_date, end_date)
+    return _service(db).summary(current_user.id, start_date, end_date)
 
 
 @router.get("/spending-by-category", response_model=List[CategorySpending])
@@ -46,8 +45,7 @@ def get_spending_by_category(
     end_date: Optional[date] = Query(None),
     transaction_type: str = Query("expense"),
 ):
-    service = _service(db)
-    return service.spending_by_category(
+    return _service(db).spending_by_category(
         current_user.id, start_date, end_date, transaction_type
     )
 
@@ -60,8 +58,7 @@ def get_cashflow(
     end_date: Optional[date] = Query(None),
     interval: Literal["daily", "weekly", "monthly"] = Query("daily"),
 ):
-    service = _service(db)
-    return service.cashflow(current_user.id, start_date, end_date, interval)
+    return _service(db).cashflow(current_user.id, start_date, end_date, interval)
 
 
 @router.get("/budget-utilization", response_model=List[BudgetUtilization])
@@ -69,8 +66,7 @@ def get_budget_utilization(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    service = _service(db)
-    return service.budget_utilization(current_user.id)
+    return _service(db).budget_utilization(current_user.id)
 
 
 @router.get("/forecast", response_model=List[ForecastResponse])
@@ -78,8 +74,8 @@ def list_forecast(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    service = _service(db)
-    return service.list_forecast(current_user.id)
+    """Return stored weekly forecasts (written after each training run)."""
+    return _service(db).list_forecast(current_user.id)
 
 
 @router.get("/anomalies", response_model=List[AnomalyItem])
@@ -88,8 +84,7 @@ def get_anomalies(
     current_user: User = Depends(get_current_user),
     window_days: int = Query(30, ge=7, le=365),
 ):
-    service = _service(db)
-    return service.anomalies(current_user.id, window_days)
+    return _service(db).anomalies(current_user.id, window_days)
 
 
 @router.get("/recommendations", response_model=RecommendationsResponse)
@@ -97,5 +92,5 @@ def get_recommendations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    service = _service(db)
-    return {"recommendations": service.recommendations(current_user.id)}
+    """Return three-tier ML-powered financial recommendations."""
+    return _service(db).recommendations(current_user.id)

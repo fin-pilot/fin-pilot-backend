@@ -8,12 +8,9 @@ from jose import JWTError
 from jose import jwt
 from sqlalchemy.orm import Session
 
+from app.config import backend_settings
 from app.db.database import get_db
 from app.db.models import User
-from app.services.ml_service import (
-    ml_service,
-)
-from app.config import backend_settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -63,5 +60,3 @@ def get_current_user(
     return user
 
 
-def get_categorizer():
-    return ml_service.categorizer

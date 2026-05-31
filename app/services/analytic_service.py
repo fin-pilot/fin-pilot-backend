@@ -18,13 +18,15 @@ from app.schemas.analytics import (
     DailyTotal,
     ForecastResponse,
     RecommendationItem,
+    RecommendationsResponse,
     SummaryResponse,
 )
-from app.services.recommender import FinanceRecommender
+from app.services.ml_service import backend_ml_service
 
 
 class AnalyticsService:
     def __init__(self, db: Session) -> None:
+        self._db = db
         self._repo = AnalyticsRepository(db)
         self._forecast_repo = ForecastRepository(db)
 
@@ -135,6 +137,7 @@ class AnalyticsService:
         return result
 
     def list_forecast(self, user_id: UUID) -> list[ForecastResponse]:
+        """Return stored forecast rows (written after each training run)."""
         rows = self._forecast_repo.list_by_user(user_id)
         return [ForecastResponse.from_forecast_row(row) for row in rows]
 
@@ -164,15 +167,32 @@ class AnalyticsService:
             )
         return anomalies
 
-    def recommendations(self, user_id: UUID) -> list[RecommendationItem]:
-        start_date = date.today() - timedelta(days=30)
-        income = self._repo.recommendation_income(user_id, start_date)
-        expense_rows = self._repo.recommendation_expense_by_category(
-            user_id, start_date
+    def recommendations(self, user_id: UUID) -> RecommendationsResponse:
+        """Generate three-tier financial recommendations via the ML engine."""
+        from datetime import datetime, timezone
+
+        ml_response = backend_ml_service.get_ml_recommendations(
+            self._db, user_id
         )
-        expense_by_cat = {name: amount for name, amount in expense_rows}
-        rec_engine = FinanceRecommender()
-        return rec_engine.analyze_spending(income, expense_by_cat)
+
+        items = [
+            RecommendationItem(
+                tier=rec.tier,
+                category=rec.category,
+                diagnosis=rec.diagnosis,
+                action=rec.action,
+                projected_effect=rec.projected_effect,
+                confidence=rec.confidence,
+            )
+            for rec in ml_response.recommendations
+        ]
+
+        return RecommendationsResponse(
+            recommendations=items,
+            generated_at=ml_response.generated_at,
+        )
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
 
     @staticmethod
     def _parse_transaction_type(raw: str) -> TransactionType:
@@ -182,9 +202,7 @@ class AnalyticsService:
             "expense": TransactionType.EXPENSE,
             "transfer": TransactionType.TRANSFER,
         }
-        if key not in mapping:
-            return TransactionType.EXPENSE
-        return mapping[key]
+        return mapping.get(key, TransactionType.EXPENSE)
 
     @staticmethod
     def _format_period_label(
@@ -200,9 +218,7 @@ class AnalyticsService:
             return label_date.isoformat()
 
         if interval == "monthly":
-            last_day = calendar.monthrange(period_date.year, period_date.month)[
-                1
-            ]
+            last_day = calendar.monthrange(period_date.year, period_date.month)[1]
             return period_date.replace(day=last_day).isoformat()
 
         return period_date.isoformat()
