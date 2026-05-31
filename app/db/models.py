@@ -87,6 +87,13 @@ class User(Base):
         server_default="UAH",
     )
 
+    locale: Mapped[str] = mapped_column(
+        String(2),
+        default="uk",
+        nullable=False,
+        server_default="uk",
+    )
+
     accounts: Mapped[list["Account"]] = relationship(
         back_populates="owner",
         cascade="all, delete-orphan",
@@ -214,6 +221,12 @@ class Category(Base):
     name: Mapped[str] = mapped_column(
         String,
         nullable=False,
+    )
+
+    slug: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
     )
 
     transaction_type: Mapped[TransactionType] = mapped_column(

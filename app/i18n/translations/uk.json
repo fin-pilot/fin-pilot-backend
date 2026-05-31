@@ -1,0 +1,48 @@
+{
+  "errors": {
+    "not_found": "Ресурс не знайдено",
+    "validation": "Помилка валідації",
+    "permission_denied": "Доступ заборонено",
+    "conflict": "Конфлікт — ресурс вже існує",
+    "unauthorized": "Необхідна авторизація",
+    "internal": "Внутрішня помилка сервера"
+  },
+  "categories": {
+    "food_dining":        "Їжа та харчування",
+    "transportation":     "Транспорт",
+    "shopping_retail":    "Покупки та роздрібна торгівля",
+    "entertainment":      "Розваги та відпочинок",
+    "healthcare":         "Охорона здоров'я та медицина",
+    "utilities":          "Комунальні послуги",
+    "financial_services": "Фінансові послуги",
+    "government_legal":   "Державні та юридичні послуги",
+    "charity":            "Благодійність та пожертви",
+    "other_expense":      "Інше (витрати)",
+    "income_general":     "Дохід",
+    "investments":        "Інвестиції",
+    "salary":             "Зарплата",
+    "other_income":       "Інше (дохід)"
+  },
+  "recommendations": {
+    "PREVENTIVE_OVERSPEND": {
+      "diagnosis": "При поточному темпі витрат у категорії «{category}» місячний ліміт {limit} буде перевищено на {overage}.",
+      "action": "Скоротіть щоденні витрати у «{category}» на {daily_reduction} протягом {remaining_days} дн., що залишилися у місяці.",
+      "projected_effect": "Залишитися в межах місячного ліміту {limit}."
+    },
+    "OPTIMISATION_INACTIVE": {
+      "diagnosis": "Регулярний платіж у категорії «{category}» ({avg_monthly}/міс.) не фіксувався вже {days_inactive} дн.",
+      "action": "Перевірте та розгляньте можливість скасування підписок у «{category}». Скасування заощадить {annual_saving} на рік.",
+      "projected_effect": "Річна економія {annual_saving}."
+    },
+    "OPTIMISATION_ANOMALY": {
+      "diagnosis": "Витрати у «{category}» минулого місяця ({latest}) перевищують середнє значення ({avg}) у {z_score}σ.",
+      "action": "Перевірте нещодавні транзакції у «{category}». Надлишок {excess} може бути разовою покупкою, яку варто виключити з планування бюджету.",
+      "projected_effect": "Переглянути цільовий бюджет: {avg}/міс. для «{category}»."
+    },
+    "STRATEGIC_SURPLUS": {
+      "diagnosis": "Профіцит бюджету за поточний місяць: {surplus}.",
+      "action": "Перерахуйте {transfer_amount} на ощадний рахунок ({savings_pct}% від профіциту).",
+      "projected_effect": "Потенціал річних заощаджень: {annual_potential} при збереженні такого темпу."
+    }
+  }
+}

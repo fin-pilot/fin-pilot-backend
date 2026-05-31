@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_current_user
 from app.db.database import get_db
 from app.db.models import User
+from app.i18n import get_locale
 from app.schemas.analytics import (
     AnomalyItem,
     BudgetUtilization,
@@ -91,6 +92,7 @@ def get_anomalies(
 def get_recommendations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Return three-tier ML-powered financial recommendations."""
-    return _service(db).recommendations(current_user.id)
+    return _service(db).recommendations(current_user.id, locale=locale)

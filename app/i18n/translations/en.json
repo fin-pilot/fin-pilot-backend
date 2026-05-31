@@ -1,0 +1,48 @@
+{
+  "errors": {
+    "not_found": "Resource not found",
+    "validation": "Validation error",
+    "permission_denied": "Permission denied",
+    "conflict": "Conflict — resource already exists",
+    "unauthorized": "Authentication required",
+    "internal": "Internal server error"
+  },
+  "categories": {
+    "food_dining":        "Food & Dining",
+    "transportation":     "Transportation",
+    "shopping_retail":    "Shopping & Retail",
+    "entertainment":      "Entertainment & Recreation",
+    "healthcare":         "Healthcare & Medical",
+    "utilities":          "Utilities & Services",
+    "financial_services": "Financial Services",
+    "government_legal":   "Government & Legal",
+    "charity":            "Charity & Donations",
+    "other_expense":      "Other (Expenses)",
+    "income_general":     "Income",
+    "investments":        "Investments",
+    "salary":             "Salary",
+    "other_income":       "Other (Income)"
+  },
+  "recommendations": {
+    "PREVENTIVE_OVERSPEND": {
+      "diagnosis": "At the current spending rate in '{category}', the monthly limit of {limit} will be exceeded by {overage}.",
+      "action": "Reduce daily spending in '{category}' by {daily_reduction} for the remaining {remaining_days} day(s) of the month.",
+      "projected_effect": "Stay within the monthly budget limit of {limit}."
+    },
+    "OPTIMISATION_INACTIVE": {
+      "diagnosis": "The '{category}' recurring charge ({avg_monthly}/mo) has not been recorded for {days_inactive} days.",
+      "action": "Review and consider cancelling subscriptions in '{category}'. Cancellation could save {annual_saving} per year.",
+      "projected_effect": "Annual saving of {annual_saving}."
+    },
+    "OPTIMISATION_ANOMALY": {
+      "diagnosis": "Last month's '{category}' spend ({latest}) is {z_score} standard deviations above the historical average ({avg}).",
+      "action": "Review recent transactions in '{category}'. The unusual excess of {excess} may represent a one-off purchase that can be excluded from regular budget planning.",
+      "projected_effect": "Re-baselined budget target: {avg}/mo for '{category}'."
+    },
+    "STRATEGIC_SURPLUS": {
+      "diagnosis": "Budget surplus this month: {surplus}.",
+      "action": "Transfer {transfer_amount} to a savings account ({savings_pct}% of the surplus).",
+      "projected_effect": "Annual savings potential: {annual_potential} if maintained monthly."
+    }
+  }
+}

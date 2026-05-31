@@ -15,11 +15,13 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
     base_currency: Optional[str] = None
+    locale: Optional[str] = None
 
 
 class UserResponse(UserBase):
     id: UUID4
     base_currency: str = "UAH"
+    locale: str = "uk"
 
     model_config = ConfigDict(from_attributes=True)
 
