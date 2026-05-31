@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.db.models import TransactionType
-from app.i18n.translator import t
+from app.i18n.translator import t, translate_category
 from app.repositories.analytics_repository import AnalyticsRepository
 from app.repositories.forecast_repository import ForecastRepository
 from app.schemas.analytics import (
@@ -177,10 +177,10 @@ class AnalyticsService:
         items = [
             RecommendationItem(
                 tier=rec.tier,
-                category=rec.category,
-                diagnosis=_translate_rec_field(rec, "diagnosis", locale),
-                action=_translate_rec_field(rec, "action", locale),
-                projected_effect=_translate_rec_field(rec, "projected_effect", locale),
+                category=_localize_category_name(rec.category, locale, self._db),
+                diagnosis=_translate_rec_field(rec, "diagnosis", locale, self._db),
+                action=_translate_rec_field(rec, "action", locale, self._db),
+                projected_effect=_translate_rec_field(rec, "projected_effect", locale, self._db),
                 confidence=rec.confidence,
             )
             for rec in ml_response.recommendations
@@ -225,30 +225,88 @@ class AnalyticsService:
 
 # ── Module-level i18n helpers ─────────────────────────────────────────────────
 
+# Maps the English ML-internal category names to their i18n slugs.
+# Keeps ML logic fully locale-agnostic while allowing the API layer to localize.
+_ML_NAME_TO_SLUG: dict[str, str] = {
+    "Food & Dining":              "food_dining",
+    "Transportation":             "transportation",
+    "Shopping & Retail":          "shopping_retail",
+    "Entertainment & Recreation": "entertainment",
+    "Healthcare & Medical":       "healthcare",
+    "Utilities & Services":       "utilities",
+    "Financial Services":         "financial_services",
+    "Government & Legal":         "government_legal",
+    "Charity & Donations":        "charity",
+    "Income":                     "income_general",
+    "Investments":                "investments",
+    "Salary":                     "salary",
+}
+
+
 def _fmt(value: float) -> str:
     """Format a float amount as a compact decimal string (no currency symbol)."""
     return f"{value:,.2f}"
 
 
-def _translate_rec_field(rec, field: str, locale: str) -> str:
-    """Return a locale-rendered string for one of diagnosis/action/projected_effect.
+def _localize_category_name(
+    english_name: str,
+    locale: str,
+    db: Session | None = None,
+) -> str:
+    """Return the localized display name for an ML-internal English category name.
 
-    If the ML engine populated rule_key + template_vars, we use the i18n
-    template.  Otherwise we fall back to the English string the engine already
-    computed.
+    Resolution order:
+    1. Static slug map (covers all 14 default categories, zero DB calls).
+    2. DB lookup via ``Category.slug`` (covers user-created categories).
+    3. Original English name (safe fallback, never raises).
     """
-    if not rec.rule_key:
+    slug = _ML_NAME_TO_SLUG.get(english_name)
+    if slug:
+        localized = translate_category(slug, locale)
+        if localized and localized != f"categories.{slug}":
+            return localized
+
+    if db is not None:
+        from app.db.models import Category as _Category
+        from sqlalchemy import select as _select
+        row = db.execute(
+            _select(_Category.slug).where(_Category.name == english_name)
+        ).scalar_one_or_none()
+        if row:
+            localized = translate_category(row, locale)
+            if localized and localized != f"categories.{row}":
+                return localized
+
+    return english_name
+
+
+def _translate_rec_field(
+    rec: object,
+    field: str,
+    locale: str,
+    db: Session | None = None,
+) -> str:
+    """Return a locale-rendered string for diagnosis/action/projected_effect.
+
+    Translates the ``{category}`` template variable so Ukrainian users see
+    «Їжа та харчування» instead of «Food & Dining».
+    """
+    if not getattr(rec, "rule_key", None):
         return getattr(rec, field)
 
-    # Pre-format numeric vars so templates don't need format-spec syntax
-    formatted_vars = {
-        k: _fmt(v) if isinstance(v, float) else v
-        for k, v in rec.template_vars.items()
-    }
+    template_vars: dict = getattr(rec, "template_vars", {})
+
+    formatted_vars: dict = {}
+    for k, v in template_vars.items():
+        if k == "category" and isinstance(v, str):
+            formatted_vars[k] = _localize_category_name(v, locale, db)
+        elif isinstance(v, float):
+            formatted_vars[k] = _fmt(v)
+        else:
+            formatted_vars[k] = v
 
     key = f"recommendations.{rec.rule_key}.{field}"
     translated = t(key, locale=locale, **formatted_vars)
-    # If the key itself was returned (missing translation), fall back to English
     if translated == key:
         return getattr(rec, field)
     return translated

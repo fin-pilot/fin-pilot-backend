@@ -1,35 +1,51 @@
+"""FastAPI application entry point.
+
+Lifespan order:
+1. Download model artifacts (no-op if already cached locally).
+2. Load the global TF-IDF + LinearSVC categoriser into memory.
+3. Seed default categories into PostgreSQL.
+4. Start background engines: recurring-transaction processor, NBU exchange-rate refresh.
+"""
+
+from __future__ import annotations
+
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
 
-from app.utils.model_loader import (
-    download_categorizer_model_if_needed,
-    download_forecaster_model_if_needed,
-)
-
 from app.api.exception_handlers import register_exception_handlers
 from app.api.routes import (
-    auth,
-    users,
+    academic,
     accounts,
-    categories,
-    transactions,
-    budgets,
     analytics,
-    ml,
+    auth,
+    budgets,
+    categories,
     goals,
+    ml,
     recurring,
+    transactions,
+    users,
 )
 from app.db.database import SESSION_LOCAL
 from app.db.seeds import seed_categories
 from app.services.exchange_rate_service import exchange_rate_service
 from app.services.ml_service import backend_ml_service
 from app.services.recurring_service import process_recurring_transactions
+from app.utils.model_loader import (
+    download_categorizer_model_if_needed,
+    download_forecaster_model_if_needed,
+)
+
+logger = logging.getLogger(__name__)
 
 
-def run_recurring_engine() -> None:
+# ── Background task helpers ───────────────────────────────────────────────────
+
+def _run_recurring_engine() -> None:
     db = SESSION_LOCAL()
     try:
         process_recurring_transactions(db)
@@ -37,16 +53,17 @@ def run_recurring_engine() -> None:
         db.close()
 
 
-async def recurring_task() -> None:
+async def _recurring_task() -> None:
+    """Process due recurring transactions once per day."""
     while True:
         try:
-            await asyncio.to_thread(run_recurring_engine)
+            await asyncio.to_thread(_run_recurring_engine)
         except Exception as exc:
-            print(f"Error in recurring task: {exc}")
+            logger.error("Recurring transaction engine failed: %s", exc)
         await asyncio.sleep(60 * 60 * 24)
 
 
-def run_exchange_rate_refresh() -> None:
+def _run_exchange_rate_refresh() -> None:
     db = SESSION_LOCAL()
     try:
         exchange_rate_service.fetch_and_store(db)
@@ -54,12 +71,13 @@ def run_exchange_rate_refresh() -> None:
         db.close()
 
 
-async def exchange_rate_task() -> None:
+async def _exchange_rate_task() -> None:
     """Fetch NBU rates once at startup, then refresh daily at 00:05 UTC."""
     try:
-        await asyncio.to_thread(run_exchange_rate_refresh)
+        await asyncio.to_thread(_run_exchange_rate_refresh)
+        logger.info("Initial exchange rate fetch completed.")
     except Exception as exc:
-        print(f"Error in initial exchange rate fetch: {exc}")
+        logger.error("Initial exchange rate fetch failed: %s", exc)
 
     while True:
         now = datetime.now(timezone.utc)
@@ -68,38 +86,44 @@ async def exchange_rate_task() -> None:
         )
         await asyncio.sleep((next_run - now).total_seconds())
         try:
-            await asyncio.to_thread(run_exchange_rate_refresh)
+            await asyncio.to_thread(_run_exchange_rate_refresh)
+            logger.info("Exchange rates refreshed.")
         except Exception as exc:
-            print(f"Error in exchange rate task: {exc}")
+            logger.error("Exchange rate refresh failed: %s", exc)
 
 
-def initialize_model_artifacts() -> None:
+def _initialize_model_artifacts() -> None:
     """Download pre-trained model artifacts if not present locally."""
     download_categorizer_model_if_needed()
     download_forecaster_model_if_needed()
 
 
-@asynccontextmanager
-async def lifespan(application: FastAPI):
-    # 1. Download artifacts (no-op if already present)
-    await asyncio.to_thread(initialize_model_artifacts)
+# ── Lifespan ──────────────────────────────────────────────────────────────────
 
-    # 2. Load the shared categoriser model into memory
+@asynccontextmanager
+async def lifespan(application: FastAPI):  # noqa: ARG001
+    """FastAPI lifespan: startup → yield → shutdown."""
+    logger.info("Application startup — initialising model artifacts …")
+    await asyncio.to_thread(_initialize_model_artifacts)
+
+    logger.info("Loading global categoriser model …")
     await asyncio.to_thread(backend_ml_service.load_global_models)
 
-    # 3. Seed global categories
+    logger.info("Seeding default categories …")
     db = SESSION_LOCAL()
     try:
         seed_categories(db)
     finally:
         db.close()
 
-    # 4. Start background engines
-    bg_recurring = asyncio.create_task(recurring_task())
-    bg_exchange = asyncio.create_task(exchange_rate_task())
+    logger.info("Starting background task engines …")
+    bg_recurring = asyncio.create_task(_recurring_task())
+    bg_exchange = asyncio.create_task(_exchange_rate_task())
 
+    logger.info("Application startup complete.")
     yield
 
+    logger.info("Application shutdown — cancelling background tasks …")
     bg_recurring.cancel()
     bg_exchange.cancel()
     for task in (bg_recurring, bg_exchange):
@@ -109,11 +133,14 @@ async def lifespan(application: FastAPI):
             pass
 
 
+# ── Application instance ──────────────────────────────────────────────────────
+
 app = FastAPI(
     title="Personal Finance Management System API",
     description=(
-        "API for the Personal Finance Management System "
-        "with SARIMA forecasting and ML-powered recommendations."
+        "REST API for the fin-pilot personal finance management system. "
+        "Powered by SARIMA time-series forecasting, TF-IDF + LinearSVC transaction "
+        "classification, and a three-tier recommendation engine."
     ),
     version="1.0.0",
     lifespan=lifespan,
@@ -131,8 +158,10 @@ app.include_router(analytics.router)
 app.include_router(ml.router)
 app.include_router(goals.router)
 app.include_router(recurring.router)
+app.include_router(academic.router)
 
 
-@app.get("/")
-def read_root():
-    return {"message": "API is running. Visit /docs for documentation."}
+@app.get("/", tags=["health"])
+def health_check() -> dict[str, str]:
+    """Basic liveness probe — returns 200 if the application is running."""
+    return {"status": "ok", "message": "fin-pilot API is running. Visit /docs for documentation."}

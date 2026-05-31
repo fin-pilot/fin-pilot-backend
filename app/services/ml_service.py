@@ -379,6 +379,54 @@ class BackendMLService:
                     )
                     return False
 
+                # Hold out ≥4 weeks for evaluation before final fit
+                n_test = max(4, len(weekly_series) // 5)
+                train_for_eval = weekly_series.iloc[:-n_test]
+                test_for_eval = weekly_series.iloc[-n_test:]
+
+                fitted_eval = ForecastModels.train_sarima(
+                    train_data=train_for_eval,
+                    order=best_order,
+                    seasonal_order=best_seasonal_order,
+                )
+                eval_forecast = fitted_eval.forecast(steps=n_test)
+                eval_forecast.index = test_for_eval.index
+
+                import json as _json, numpy as _np
+                from sklearn.metrics import mean_absolute_error as _mae_fn, mean_squared_error as _mse_fn
+
+                _mae = float(_mae_fn(test_for_eval, eval_forecast))
+                _mse = float(_mse_fn(test_for_eval, eval_forecast))
+                _rmse = float(_np.sqrt(_mse))
+                _abs_sum = float(_np.sum(_np.abs(test_for_eval.values)))
+                _wape = float(_np.sum(_np.abs(test_for_eval.values - eval_forecast.values)) / (_abs_sum + 1e-8) * 100)
+                _smape = float(_np.mean(
+                    2 * _np.abs(eval_forecast.values - test_for_eval.values)
+                    / (_np.abs(test_for_eval.values) + _np.abs(eval_forecast.values) + 1e-8)
+                ) * 100)
+
+                metrics_payload = {
+                    "mae": round(_mae, 4),
+                    "mse": round(_mse, 4),
+                    "rmse": round(_rmse, 4),
+                    "wape": round(_wape, 4),
+                    "smape": round(_smape, 4),
+                    "n_test_weeks": n_test,
+                    "n_train_weeks": len(train_for_eval),
+                    "sarima_order": list(best_order),
+                    "sarima_seasonal_order": list(best_seasonal_order),
+                    "user_id": str(user_id),
+                }
+
+                # Write to the path the /api/ml/metrics endpoint reads
+                _metrics_dir = Path("artifacts/evaluation")
+                _metrics_dir.mkdir(parents=True, exist_ok=True)
+                _metrics_path = _metrics_dir / "sarima_metrics.json"
+                with open(_metrics_path, "w", encoding="utf-8") as _mf:
+                    _json.dump(metrics_payload, _mf, indent=2)
+                logger.info("SARIMA evaluation metrics written to %s", _metrics_path)
+
+                # Final model fitted on ALL data
                 fitted = ForecastModels.train_sarima(
                     train_data=weekly_series,
                     order=best_order,
@@ -463,12 +511,13 @@ class BackendMLService:
             if tx.transaction_type == TransactionType.INCOME
         )
 
-        # Active budgets for this user → per-category limits
+        # Active budgets for this user → per-category limits (joinedload avoids N+1)
         budgets = list(
             db.execute(
                 select(Budget)
                 .where(Budget.user_id == user_id)
-            ).scalars().all()
+                .options(joinedload(Budget.category))
+            ).scalars().unique().all()
         )
         budget_limits: dict[str, float] = {}
         for b in budgets:

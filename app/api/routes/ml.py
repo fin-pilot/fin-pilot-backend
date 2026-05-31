@@ -14,6 +14,8 @@ import logging
 from pathlib import Path
 from uuid import UUID
 
+import asyncio
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -46,8 +48,11 @@ async def categorize_description(
     current_user: User = Depends(get_current_user),
 ):
     """Classify *description* using rule-based lookup then ML model."""
-    category_id, label, confidence = backend_ml_service.categorise_description(
-        db, current_user.id, request.description
+    category_id, label, confidence = await asyncio.to_thread(
+        backend_ml_service.categorise_description,
+        db,
+        current_user.id,
+        request.description,
     )
 
     is_fallback = category_id is None
@@ -115,8 +120,6 @@ async def predict_expenses(
     current_user: User = Depends(get_current_user),
 ):
     """Return a weekly expense forecast using the per-user SARIMA model."""
-    import asyncio
-
     ml_resp = await asyncio.to_thread(
         backend_ml_service.predict_weekly_expenses,
         current_user.id,
