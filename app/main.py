@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
 
@@ -23,6 +24,7 @@ from app.api.routes import (
 )
 from app.db.database import SESSION_LOCAL
 from app.db.seeds import seed_categories
+from app.services.exchange_rate_service import exchange_rate_service
 from app.services.ml_service import backend_ml_service
 from app.services.recurring_service import process_recurring_transactions
 
@@ -42,6 +44,33 @@ async def recurring_task() -> None:
         except Exception as exc:
             print(f"Error in recurring task: {exc}")
         await asyncio.sleep(60 * 60 * 24)
+
+
+def run_exchange_rate_refresh() -> None:
+    db = SESSION_LOCAL()
+    try:
+        exchange_rate_service.fetch_and_store(db)
+    finally:
+        db.close()
+
+
+async def exchange_rate_task() -> None:
+    """Fetch NBU rates once at startup, then refresh daily at 00:05 UTC."""
+    try:
+        await asyncio.to_thread(run_exchange_rate_refresh)
+    except Exception as exc:
+        print(f"Error in initial exchange rate fetch: {exc}")
+
+    while True:
+        now = datetime.now(timezone.utc)
+        next_run = (now + timedelta(days=1)).replace(
+            hour=0, minute=5, second=0, microsecond=0
+        )
+        await asyncio.sleep((next_run - now).total_seconds())
+        try:
+            await asyncio.to_thread(run_exchange_rate_refresh)
+        except Exception as exc:
+            print(f"Error in exchange rate task: {exc}")
 
 
 def initialize_model_artifacts() -> None:
@@ -65,16 +94,19 @@ async def lifespan(application: FastAPI):
     finally:
         db.close()
 
-    # 4. Start the recurring-transaction background engine
-    bg_task = asyncio.create_task(recurring_task())
+    # 4. Start background engines
+    bg_recurring = asyncio.create_task(recurring_task())
+    bg_exchange = asyncio.create_task(exchange_rate_task())
 
     yield
 
-    bg_task.cancel()
-    try:
-        await bg_task
-    except asyncio.CancelledError:
-        pass
+    bg_recurring.cancel()
+    bg_exchange.cancel()
+    for task in (bg_recurring, bg_exchange):
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(

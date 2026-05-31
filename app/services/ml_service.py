@@ -22,7 +22,7 @@ from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from fin_pilot_ml import MLService as _MLFacade
 from fin_pilot_ml.schemas import (
@@ -41,10 +41,12 @@ from app.db.models import (
     MLTrainingStatus,
     Transaction,
     TransactionType,
+    User,
     UserMLState,
     UserTransactionRule,
 )
 from app.repositories.forecast_repository import ForecastRepository
+from app.services.exchange_rate_service import exchange_rate_service
 from app.utils.model_loader import CATEGORIZER_MODEL_PATH, FORECASTER_MODEL_PATH
 
 logger = logging.getLogger(__name__)
@@ -82,10 +84,15 @@ def _load_user_facade(user_id: UUID) -> _MLFacade:
 # ── DB helpers ────────────────────────────────────────────────────────────────
 
 def _query_expense_transactions(db: Session, user_id: UUID) -> list[Transaction]:
-    """Return all EXPENSE transactions for *user_id*, ordered by date asc."""
+    """Return all EXPENSE transactions for *user_id*, ordered by date asc.
+
+    Account is eagerly loaded so callers can access ``tx.account.currency``
+    without triggering additional queries.
+    """
     stmt = (
         select(Transaction)
         .join(Account, Transaction.account_id == Account.id)
+        .options(joinedload(Transaction.account))
         .where(
             Account.user_id == user_id,
             Transaction.transaction_type == TransactionType.EXPENSE,
@@ -96,14 +103,18 @@ def _query_expense_transactions(db: Session, user_id: UUID) -> list[Transaction]
 
 
 def _query_all_transactions(db: Session, user_id: UUID) -> list[Transaction]:
-    """Return all transactions (income + expense) for *user_id* in the last 90 days."""
+    """Return all transactions (income + expense) for *user_id* in the last 90 days.
+
+    Account is eagerly loaded so callers can access ``tx.account.currency``
+    without triggering additional queries.
+    """
     from datetime import timedelta
-    from datetime import date as date_type
 
     cutoff = datetime.now(tz=timezone.utc) - timedelta(days=90)
     stmt = (
         select(Transaction)
         .join(Account, Transaction.account_id == Account.id)
+        .options(joinedload(Transaction.account))
         .where(
             Account.user_id == user_id,
             Transaction.transaction_date >= cutoff,
@@ -113,20 +124,50 @@ def _query_all_transactions(db: Session, user_id: UUID) -> list[Transaction]:
     return list(db.execute(stmt).scalars().all())
 
 
-def _to_transaction_records(txs: list[Transaction]) -> list[TransactionRecord]:
+def _get_user_base_currency(db: Session, user_id: UUID) -> str:
+    """Return the user's configured base currency (default 'UAH')."""
+    user = db.execute(
+        select(User).where(User.id == user_id)
+    ).scalar_one_or_none()
+    return user.base_currency if user else "UAH"
+
+
+def _to_normalized_records(
+    db: Session,
+    txs: list[Transaction],
+    base_currency: str,
+) -> list[TransactionRecord]:
+    """Convert ORM transactions to ML TransactionRecord objects.
+
+    Amounts are converted to *base_currency* using the historical exchange
+    rate active on each transaction's date.  When no rate is available the
+    amount is passed through unchanged (rate = 1.0, with a warning logged by
+    the exchange rate service).
+    """
     records: list[TransactionRecord] = []
     for tx in txs:
+        account_currency: str = tx.account.currency
+        if account_currency == base_currency:
+            normalized_amount = float(tx.amount)
+        else:
+            rate = exchange_rate_service.get_rate(
+                db,
+                base=base_currency,
+                target=account_currency,
+                on_date=tx.transaction_date.date(),
+            )
+            normalized_amount = float(tx.amount) * rate
+
         tx_type = (
             "debit" if tx.transaction_type == TransactionType.EXPENSE else "credit"
         )
-        category_name: str | None = tx.category.name if tx.category else None
         records.append(
             TransactionRecord(
                 date=tx.transaction_date.date().isoformat(),
-                amount=float(tx.amount),
+                amount=normalized_amount,
                 transaction_type=tx_type,
                 description=tx.description or "",
-                category=category_name,
+                category=tx.category.name if tx.category else None,
             )
         )
     return records
@@ -266,7 +307,8 @@ class BackendMLService:
             logger.warning("No expense transactions found for user %s", user_id)
             return False
 
-        records = _to_transaction_records(transactions)
+        base_currency = _get_user_base_currency(db, user_id)
+        records = _to_normalized_records(db, transactions, base_currency)
         n_samples = len(records)
         model_path = _user_sarima_path(user_id)
 
@@ -395,7 +437,8 @@ class BackendMLService:
         Falls back to cold-start response if the per-user model is not yet trained.
         """
         transactions = _query_expense_transactions(db, user_id)
-        records = _to_transaction_records(transactions)
+        base_currency = _get_user_base_currency(db, user_id)
+        records = _to_normalized_records(db, transactions, base_currency)
 
         user_facade = _load_user_facade(user_id)
         return user_facade.forecast(
@@ -411,7 +454,8 @@ class BackendMLService:
         from datetime import date
 
         transactions = _query_all_transactions(db, user_id)
-        records = _to_transaction_records(transactions)
+        base_currency = _get_user_base_currency(db, user_id)
+        records = _to_normalized_records(db, transactions, base_currency)
 
         income_total = sum(
             float(tx.amount)

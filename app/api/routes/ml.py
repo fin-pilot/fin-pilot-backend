@@ -135,6 +135,7 @@ async def predict_expenses(
             for pt in ml_resp.weeks
         ],
         generated_at=ml_resp.generated_at,
+        base_currency=current_user.base_currency,
     )
 
 
@@ -161,6 +162,7 @@ async def ml_status(
         ),
         n_training_samples=state.n_training_samples if state else None,
         error_message=state.error_message if state else None,
+        base_currency=current_user.base_currency,
     )
 
 

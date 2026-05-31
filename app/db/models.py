@@ -15,6 +15,7 @@ from sqlalchemy import (
     Numeric,
     String,
     UniqueConstraint,
+    Index,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -77,6 +78,13 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=functions.now(),
+    )
+
+    base_currency: Mapped[str] = mapped_column(
+        String(3),
+        default="UAH",
+        nullable=False,
+        server_default="UAH",
     )
 
     accounts: Mapped[list["Account"]] = relationship(
@@ -641,4 +649,58 @@ class UserMLState(Base):
 
     owner: Mapped["User"] = relationship(
         back_populates="ml_state",
+    )
+
+
+class ExchangeRate(Base):
+    """Daily exchange rate snapshot.
+
+    Convention: ``rate`` is the number of ``base_currency`` units that equal
+    one unit of ``target_currency``.
+    Example: base=UAH, target=USD, rate=41.50  →  1 USD = 41.50 UAH.
+    """
+
+    __tablename__ = "exchange_rates"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "base_currency",
+            "target_currency",
+            "rate_date",
+            name="uq_exchange_rate_daily",
+        ),
+        Index("ix_exchange_rates_lookup", "base_currency", "target_currency", "rate_date"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    base_currency: Mapped[str] = mapped_column(
+        String(3),
+        nullable=False,
+    )
+
+    target_currency: Mapped[str] = mapped_column(
+        String(3),
+        nullable=False,
+    )
+
+    rate: Mapped[float] = mapped_column(
+        Numeric(precision=18, scale=6),
+        nullable=False,
+    )
+
+    rate_date: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+        index=True,
+    )
+
+    source: Mapped[str] = mapped_column(
+        String(32),
+        default="NBU",
+        nullable=False,
     )

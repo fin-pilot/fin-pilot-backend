@@ -40,6 +40,10 @@ class ForecastStatusResponse(BaseModel):
     model_used: str = Field(description='"sarima" або "none"')
     weeks: list[WeeklyForecastPoint]
     generated_at: str = Field(description="UTC ISO-8601 timestamp генерації")
+    base_currency: str = Field(
+        "UAH",
+        description="Валюта, в якій виражені суми прогнозу (базова валюта користувача)",
+    )
 
 
 # ── Recommendations (three-tier) ──────────────────────────────────────────────
@@ -76,6 +80,10 @@ class MLStatusResponse(BaseModel):
         None, description="Кількість транзакцій, використаних при навчанні"
     )
     error_message: Optional[str] = None
+    base_currency: str = Field(
+        "UAH",
+        description="Базова валюта користувача — одиниця вимірювання прогнозу",
+    )
 
 
 # ── Academic metrics ──────────────────────────────────────────────────────────
