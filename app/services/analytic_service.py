@@ -240,6 +240,7 @@ _ML_NAME_TO_SLUG: dict[str, str] = {
     "Income":                     "income_general",
     "Investments":                "investments",
     "Salary":                     "salary",
+    "general":                    "general",
 }
 
 

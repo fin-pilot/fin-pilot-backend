@@ -32,17 +32,18 @@ class LedgerService:
         transaction_type: TransactionType,
     ) -> None:
         self.validate_transfer(transaction_type, dest_account)
+        amt = float(amount)
         if transaction_type == TransactionType.INCOME:
-            account.balance += amount
+            account.balance = float(account.balance) + amt
         elif transaction_type == TransactionType.EXPENSE:
-            account.balance -= amount
+            account.balance = float(account.balance) - amt
         elif transaction_type == TransactionType.TRANSFER:
             if dest_account is None:
                 raise ValidationError(
                     "Destination account required for transfer."
                 )
-            account.balance -= amount
-            dest_account.balance += amount
+            account.balance = float(account.balance) - amt
+            dest_account.balance = float(dest_account.balance) + amt
 
     def reverse_transaction(
         self,
@@ -52,17 +53,18 @@ class LedgerService:
         transaction_type: TransactionType,
     ) -> None:
         self.validate_transfer(transaction_type, dest_account)
+        amt = float(amount)
         if transaction_type == TransactionType.INCOME:
-            account.balance -= amount
+            account.balance = float(account.balance) - amt
         elif transaction_type == TransactionType.EXPENSE:
-            account.balance += amount
+            account.balance = float(account.balance) + amt
         elif transaction_type == TransactionType.TRANSFER:
             if dest_account is None:
                 raise ValidationError(
                     "Destination account required for transfer."
                 )
-            account.balance += amount
-            dest_account.balance -= amount
+            account.balance = float(account.balance) + amt
+            dest_account.balance = float(dest_account.balance) - amt
 
     def update_transaction(
         self,
@@ -73,20 +75,20 @@ class LedgerService:
         transaction_type: TransactionType,
     ) -> None:
         self.validate_transfer(transaction_type, dest_account)
-        difference = new_amount - old_amount
+        difference = float(new_amount) - float(old_amount)
         if difference == 0:
             return
         if transaction_type == TransactionType.INCOME:
-            account.balance += difference
+            account.balance = float(account.balance) + difference
         elif transaction_type == TransactionType.EXPENSE:
-            account.balance -= difference
+            account.balance = float(account.balance) - difference
         elif transaction_type == TransactionType.TRANSFER:
             if dest_account is None:
                 raise ValidationError(
                     "Destination account required for transfer."
                 )
-            account.balance -= difference
-            dest_account.balance += difference
+            account.balance = float(account.balance) - difference
+            dest_account.balance = float(dest_account.balance) + difference
 
     def recalculate_account_balance(self, account_id: UUID) -> float:
         income_sum = (

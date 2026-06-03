@@ -16,26 +16,28 @@ def _json_error(status_code: int, message: str) -> JSONResponse:
 
 
 def register_exception_handlers(app: FastAPI) -> None:
+    from starlette.requests import Request
+
     @app.exception_handler(NotFoundError)
     async def _not_found_handler(
-        exc: NotFoundError,
+        request: Request, exc: NotFoundError
     ) -> JSONResponse:
         return _json_error(404, exc.message)
 
     @app.exception_handler(ValidationError)
     async def _validation_handler(
-        exc: ValidationError,
+        request: Request, exc: ValidationError
     ) -> JSONResponse:
         return _json_error(400, exc.message)
 
     @app.exception_handler(PermissionDeniedError)
     async def _permission_handler(
-        exc: PermissionDeniedError,
+        request: Request, exc: PermissionDeniedError
     ) -> JSONResponse:
         return _json_error(403, exc.message)
 
     @app.exception_handler(ConflictError)
     async def _conflict_handler(
-        exc: ConflictError,
+        request: Request, exc: ConflictError
     ) -> JSONResponse:
         return _json_error(409, exc.message)

@@ -340,10 +340,10 @@ class Budget(Base):
         index=True,
     )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 
@@ -374,7 +374,7 @@ class Budget(Base):
         nullable=False,
     )
 
-    owner: Mapped["User"] = relationship(
+    owner: Mapped[Optional["User"]] = relationship(
         back_populates="budgets",
     )
 
@@ -635,7 +635,7 @@ class UserMLState(Base):
     )
 
     training_status: Mapped[MLTrainingStatus] = mapped_column(
-        Enum(MLTrainingStatus),
+        Enum(MLTrainingStatus, values_callable=lambda obj: [e.value for e in obj]),
         default=MLTrainingStatus.PENDING,
         nullable=False,
     )

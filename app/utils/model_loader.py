@@ -20,14 +20,21 @@ CATEGORIZER_MODEL_URL = (
     "artifacts/categorizing/models/model.pkl"
 )
 
+CATEGORIZER_METRICS_URL = (
+    "https://raw.githubusercontent.com/"
+    "fin-pilot/fin-pilot-ml/main/"
+    "artifacts/categorizing/evaluation/metrics.json"
+)
+
 FORECASTER_MODEL_URL = (
     "https://raw.githubusercontent.com/"
     "fin-pilot/fin-pilot-ml/main/"
     "artifacts/forecasting/models/sarima.pkl"
 )
 
-CATEGORIZER_MODEL_PATH = Path("artifacts/categorizing/models/model.pkl")
-FORECASTER_MODEL_PATH = Path("artifacts/forecasting/models/sarima.pkl")
+CATEGORIZER_MODEL_PATH   = Path("artifacts/categorizing/models/model.pkl")
+CATEGORIZER_METRICS_PATH = Path("artifacts/categorizing/evaluation/metrics.json")
+FORECASTER_MODEL_PATH    = Path("artifacts/forecasting/models/sarima.pkl")
 
 
 def _download_file(url: str, destination: Path) -> bool:
@@ -56,9 +63,10 @@ def _download_file(url: str, destination: Path) -> bool:
 
 
 def download_categorizer_model_if_needed() -> None:
-    if CATEGORIZER_MODEL_PATH.exists():
-        return
-    _download_file(CATEGORIZER_MODEL_URL, CATEGORIZER_MODEL_PATH)
+    if not CATEGORIZER_MODEL_PATH.exists():
+        _download_file(CATEGORIZER_MODEL_URL, CATEGORIZER_MODEL_PATH)
+    if not CATEGORIZER_METRICS_PATH.exists():
+        _download_file(CATEGORIZER_METRICS_URL, CATEGORIZER_METRICS_PATH)
 
 
 def download_forecaster_model_if_needed() -> None:

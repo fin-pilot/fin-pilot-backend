@@ -31,7 +31,7 @@ from app.api.routes import (
     users,
 )
 from app.db.database import SESSION_LOCAL
-from app.db.seeds import seed_categories
+from app.db.seeds import seed_categories, seed_default_budgets, seed_demo_goals, seed_demo_recurring
 from app.services.exchange_rate_service import exchange_rate_service
 from app.services.ml_service import backend_ml_service
 from app.services.recurring_service import process_recurring_transactions
@@ -109,10 +109,30 @@ async def lifespan(application: FastAPI):  # noqa: ARG001
     logger.info("Loading global categoriser model …")
     await asyncio.to_thread(backend_ml_service.load_global_models)
 
-    logger.info("Seeding default categories …")
+    logger.info("Seeding default categories, budgets, goals, and recurring transactions …")
     db = SESSION_LOCAL()
     try:
+        import uuid as _uuid
+        from app.db.models import User, Account
         seed_categories(db)
+        seed_default_budgets(db)
+
+        demo_user = db.query(User).filter(User.email == "demo@finpilot.ua").first()
+        if demo_user:
+            def _acct(name: str):
+                row = db.query(Account).filter(
+                    Account.user_id == demo_user.id, Account.name == name
+                ).first()
+                return row.id if row else None
+
+            seed_demo_goals(db, demo_user.id)
+            seed_demo_recurring(
+                db,
+                demo_user_id=demo_user.id,
+                main_account_id=_acct("Main Debit Card"),
+                savings_account_id=_acct("Savings / Deposit"),
+                freelance_account_id=_acct("Business / Freelance Account"),
+            )
     finally:
         db.close()
 

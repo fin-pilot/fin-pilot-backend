@@ -8,20 +8,21 @@
     "internal": "Internal server error"
   },
   "categories": {
-    "food_dining":        "Food & Dining",
-    "transportation":     "Transportation",
-    "shopping_retail":    "Shopping & Retail",
-    "entertainment":      "Entertainment & Recreation",
-    "healthcare":         "Healthcare & Medical",
-    "utilities":          "Utilities & Services",
+    "food_dining": "Food & Dining",
+    "transportation": "Transportation",
+    "shopping_retail": "Shopping & Retail",
+    "entertainment": "Entertainment & Recreation",
+    "healthcare": "Healthcare & Medical",
+    "utilities": "Utilities & Services",
     "financial_services": "Financial Services",
-    "government_legal":   "Government & Legal",
-    "charity":            "Charity & Donations",
-    "other_expense":      "Other (Expenses)",
-    "income_general":     "Income",
-    "investments":        "Investments",
-    "salary":             "Salary",
-    "other_income":       "Other (Income)"
+    "government_legal": "Government & Legal",
+    "charity": "Charity & Donations",
+    "other_expense": "Other (Expenses)",
+    "income_general": "Income",
+    "investments": "Investments",
+    "salary": "Salary",
+    "other_income": "Other (Income)",
+    "general": "General"
   },
   "recommendations": {
     "PREVENTIVE_OVERSPEND": {

@@ -511,17 +511,20 @@ class BackendMLService:
             if tx.transaction_type == TransactionType.INCOME
         )
 
-        # Active budgets for this user → per-category limits (joinedload avoids N+1)
-        budgets = list(
+        # Collect budget limits: user-specific rows first, then global defaults
+        # for any category the user has not personally configured.
+        from sqlalchemy import or_
+        all_budgets = list(
             db.execute(
                 select(Budget)
-                .where(Budget.user_id == user_id)
+                .where(or_(Budget.user_id == user_id, Budget.user_id.is_(None)))
                 .options(joinedload(Budget.category))
             ).scalars().unique().all()
         )
         budget_limits: dict[str, float] = {}
-        for b in budgets:
-            if b.category:
+        # Two-pass: user-specific first so they shadow globals for same category.
+        for b in sorted(all_budgets, key=lambda x: x.user_id is None):
+            if b.category and b.category.name not in budget_limits:
                 budget_limits[b.category.name] = float(b.limit_amount)
 
         user_facade = _load_user_facade(user_id)

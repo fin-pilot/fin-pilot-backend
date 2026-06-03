@@ -23,8 +23,9 @@ class BudgetUpdate(BaseModel):
 
 class BudgetResponse(BudgetBase):
     id: UUID4
-    user_id: UUID4
+    user_id: Optional[UUID4]
     name: str
     spent_amount: float = 0.0
+    is_default: bool = False
 
     model_config = ConfigDict(from_attributes=True)
